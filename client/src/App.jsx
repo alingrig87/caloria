@@ -27,42 +27,16 @@ export default function App() {
         body: JSON.stringify({ imageBase64: image.base64, mediaType: image.mediaType }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "Eroare server");
+        throw new Error(data.error || "Eroare server");
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let rawText = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop();
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6).trim();
-            if (data === "[DONE]") {
-              try {
-                const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-                if (jsonMatch) setResult(JSON.parse(jsonMatch[0]));
-                else setError("Nu am putut parsa raspunsul.");
-              } catch {
-                setError("Nu am putut parsa raspunsul. Incearca din nou.");
-              }
-              break;
-            }
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.text) rawText += parsed.text;
-            } catch {}
-          }
-        }
+      if (data.error) {
+        setError(data.error);
+      } else {
+        setResult(data);
       }
     } catch (err) {
       setError(err.message || "A aparut o eroare. Verifica serverul.");

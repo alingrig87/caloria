@@ -15,12 +15,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "imageBase64 and mediaType sunt necesare" });
   }
 
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-
   try {
-    const stream = await client.messages.stream({
+    const message = await client.messages.create({
       model: "claude-opus-4-6",
       max_tokens: 1024,
       messages: [
@@ -63,20 +59,16 @@ Reguli:
       ],
     });
 
-    for await (const event of stream) {
-      if (
-        event.type === "content_block_delta" &&
-        event.delta.type === "text_delta"
-      ) {
-        res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
-      }
+    const rawText = message.content[0].text;
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return res.status(500).json({ error: "Nu am putut parsa raspunsul AI." });
     }
 
-    res.write("data: [DONE]\n\n");
-    res.end();
+    const parsed = JSON.parse(jsonMatch[0]);
+    return res.status(200).json(parsed);
   } catch (error) {
     console.error("Eroare Claude API:", error);
-    res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
-    res.end();
+    return res.status(500).json({ error: error.message || "Eroare server" });
   }
 }
