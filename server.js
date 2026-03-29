@@ -85,6 +85,81 @@ Reguli:
   }
 });
 
+const WEEKDAYS_RO = ["Duminica", "Luni", "Marti", "Miercuri", "Joi", "Vineri", "Sambata"];
+
+function getWeekdayForDay(dayNumber) {
+  const d = new Date();
+  d.setDate(d.getDate() + dayNumber);
+  return WEEKDAYS_RO[d.getDay()];
+}
+
+async function dietCallWithRetry(prompt, validate, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const message = await client.messages.create({
+      model: "claude-opus-4-6",
+      max_tokens: 3000,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const raw = message.content[0].text;
+    try {
+      const match = raw.match(/[\[{][\s\S]*[\]}]/);
+      if (!match) throw new Error("no JSON");
+      const parsed = JSON.parse(match[0]);
+      validate(parsed);
+      return parsed;
+    } catch (err) {
+      if (attempt === maxRetries) throw new Error(`Failed after ${maxRetries} tries: ${err.message}`);
+      console.warn(`Diet attempt ${attempt} failed: ${err.message}, retrying...`);
+    }
+  }
+}
+
+async function dietGenerateWeek1(params) {
+  const { firstName, lastName, height, weight, age, country, preferredFoods, specialOccasions, currentMonth, currentYear } = params;
+  const startWd = getWeekdayForDay(1);
+  const prompt = `Esti nutritionist expert. Analiza pacient si planul zilelor 1-7.
+
+Pacient: ${firstName} ${lastName}, ${height}cm, ${weight}kg, ${age}ani, ${country}
+Alimente preferate: ${preferredFoods || "nespecificate"}
+Ocazii speciale: ${specialOccasions || "niciuna"}
+Sezon: ${currentMonth} ${currentYear}, alimente de sezon din ${country}
+Ziua 1 incepe cu: ${startWd}
+
+Calculeaza IMC, greutate ideala (formula Devine), calorii pentru -0.5kg/saptamana.
+
+RASPUNDE DOAR cu JSON compact (fara text in afara):
+{"analysis":{"bmi":27.7,"bmi_category":"Supraponderal","ideal_weight":70,"ideal_weight_range":"65-72 kg","daily_calories":1700,"weekly_loss_kg":0.5,"expected_loss_month":2.0,"expected_weight_end":78.0},"recommendations":["rec1","rec2","rec3","rec4","rec5"],"days":[{"d":1,"w":"${startWd}","b":"Masa mic dejun|380","l":"Masa pranz|480","n":"Masa cina|320","s":"Gustare|180","t":1360}]}
+
+Format: d=nr_zi, w=ziua_sapt, b=mic_dejun|kcal, l=pranz|kcal, n=cina|kcal, s=gustare|kcal, t=total
+Genereaza exact 7 zile (1-7). Nume mese scurte (max 5 cuvinte), variate, specifice ${country}.`;
+  return dietCallWithRetry(prompt, (p) => {
+    if (!p.analysis || !p.days || p.days.length < 7) throw new Error(`invalid week1: ${p.days?.length} days`);
+  });
+}
+
+async function dietGenerateWeekDays(params, startDay, endDay, dailyCalories) {
+  const { country, preferredFoods, specialOccasions, currentMonth } = params;
+  const startWd = getWeekdayForDay(startDay);
+  const count = endDay - startDay + 1;
+  const prompt = `Esti nutritionist expert. Genereaza DOAR zilele ${startDay}-${endDay} dintr-un plan alimentar.
+
+Pacient: ${params.height}cm, ${params.weight}kg, ${params.age}ani, ${country}
+Calorii zilnice tinta: ${dailyCalories} kcal
+Alimente preferate: ${preferredFoods || "nespecificate"}
+Ocazii speciale: ${specialOccasions || "niciuna"}
+Sezon: ${currentMonth}, alimente de sezon din ${country}
+Ziua ${startDay} incepe cu: ${startWd}
+
+RASPUNDE DOAR cu array JSON compact (fara {}, fara text in afara):
+[{"d":${startDay},"w":"${startWd}","b":"Masa mic dejun|380","l":"Masa pranz|480","n":"Masa cina|320","s":"Gustare|180","t":1360}]
+
+Format: d=nr_zi, w=ziua_sapt, b=mic_dejun|kcal, l=pranz|kcal, n=cina|kcal, s=gustare|kcal, t=total
+Genereaza exact ${count} zile (${startDay} pana la ${endDay}). Mese variate, specifice ${country}, de sezon.`;
+  return dietCallWithRetry(prompt, (p) => {
+    if (!Array.isArray(p) || p.length < count - 1) throw new Error(`got ${p?.length} days, need ${count}`);
+  });
+}
+
 app.post("/api/diet", async (req, res) => {
   const { firstName, lastName, height, weight, age, country, preferredFoods, specialOccasions } = req.body;
 
@@ -95,66 +170,32 @@ app.post("/api/diet", async (req, res) => {
   const today = new Date();
   const months = ["Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie",
     "Iulie", "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie"];
-  const currentMonth = months[today.getMonth()];
-  const currentYear = today.getFullYear();
 
-  const buildPrompt = () => `Ești nutriționist expert. Plan alimentar 30 zile pentru:
-- ${firstName} ${lastName}, ${height}cm, ${weight}kg, ${age}ani, ${country}
-- Alimente preferate: ${preferredFoods || "nespecificate"}
-- Ocazii speciale: ${specialOccasions || "niciuna"}
-- Sezon: ${currentMonth} ${currentYear} - foloseste alimente de sezon din ${country}
+  const params = {
+    firstName, lastName, height, weight, age, country,
+    preferredFoods, specialOccasions,
+    currentMonth: months[today.getMonth()],
+    currentYear: today.getFullYear(),
+  };
 
-Calculeaza IMC, greutate ideala (Devine), calorii pentru -0.5kg/saptamana.
+  try {
+    const week1 = await dietGenerateWeek1(params);
+    const dailyCalories = week1.analysis.daily_calories;
 
-RASPUNDE DOAR cu JSON compact valid (fara spatii extra, fara text in afara JSON):
-{"analysis":{"bmi":27.7,"bmi_category":"Supraponderal","ideal_weight":70,"ideal_weight_range":"65-72 kg","daily_calories":1700,"weekly_loss_kg":0.5,"expected_loss_month":2.0,"expected_weight_end":78.0},"recommendations":["rec1","rec2","rec3","rec4","rec5"],"days":[{"d":1,"w":"Luni","b":"Terci de ovaz cu miere|380","l":"Ciorba de legume cu pui|480","n":"Salata de ton cu rosii|320","s":"Iaurt cu nuci|180","t":1360}]}
+    const [week2Days, week3Days, week4Days] = await Promise.all([
+      dietGenerateWeekDays(params, 8, 14, dailyCalories),
+      dietGenerateWeekDays(params, 15, 21, dailyCalories),
+      dietGenerateWeekDays(params, 22, 30, dailyCalories),
+    ]);
 
-Reguli format zile: d=numar, w=ziua, b=mic_dejun|kcal, l=pranz|kcal, n=cina|kcal, s=gustare|kcal, t=total_kcal
-Nume mese: max 5 cuvinte. Genereaza TOATE 30 zilele. Saptamana: Luni,Marti,Miercuri,Joi,Vineri,Sambata,Duminica.`;
-
-  const MAX_RETRIES = 3;
-
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const message = await client.messages.create({
-        model: "claude-opus-4-6",
-        max_tokens: 8192,
-        messages: [{ role: "user", content: buildPrompt() }],
-      });
-
-      const rawText = message.content[0].text;
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-
-      if (!jsonMatch) {
-        if (attempt === MAX_RETRIES) return res.status(500).json({ error: "Nu am putut genera planul după 3 încercări." });
-        console.warn(`Diet attempt ${attempt}: no JSON, retrying...`);
-        continue;
-      }
-
-      let parsed;
-      try {
-        parsed = JSON.parse(jsonMatch[0]);
-      } catch (parseErr) {
-        if (attempt === MAX_RETRIES) return res.status(500).json({ error: "Planul generat conține erori de format. Încearcă din nou." });
-        console.warn(`Diet attempt ${attempt}: parse error, retrying...`);
-        continue;
-      }
-
-      if (!parsed.days || parsed.days.length < 28) {
-        if (attempt === MAX_RETRIES) return res.status(500).json({ error: "Planul generat este incomplet. Încearcă din nou." });
-        console.warn(`Diet attempt ${attempt}: only ${parsed.days?.length} days, retrying...`);
-        continue;
-      }
-
-      return res.status(200).json(parsed);
-
-    } catch (error) {
-      if (attempt === MAX_RETRIES) {
-        console.error("Eroare Claude API /diet:", error);
-        return res.status(500).json({ error: error.message || "Eroare server" });
-      }
-      console.warn(`Diet attempt ${attempt}: API error, retrying...`);
-    }
+    return res.status(200).json({
+      analysis: week1.analysis,
+      recommendations: week1.recommendations,
+      days: [...week1.days, ...week2Days, ...week3Days, ...week4Days],
+    });
+  } catch (error) {
+    console.error("Eroare generare plan:", error);
+    return res.status(500).json({ error: error.message || "Eroare server" });
   }
 });
 
