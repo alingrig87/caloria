@@ -85,27 +85,18 @@ Reguli:
   }
 });
 
-function dietCookingFreqInstructions(cookingFreq) {
-  switch (cookingFreq) {
-    case "rar":
-      return `IMPORTANT - Batch cooking (gatit rar):
-- Planifica doar 2 sesiuni de gatit pe saptamana (ex: Duminica si Miercuri)
-- In zilele de gatit: mese consistente care tin 2-3 zile
-- In celelalte zile: mancare ramasa sau mese simple fara gatit
-- Marcheaza cu "cook":1 zilele cu sesiune de gatit si "cook":0 restul.`;
-    case "weekend":
-      return `IMPORTANT - Gatit doar la weekend:
-- Gatesti Sambata si Duminica, pregatesti pentru intreaga saptamana
-- Luni-Vineri: mancare pregatita la weekend sau mese ultra-rapide (max 5 min)
-- Marcheaza cu "cook":1 Sambata/Duminica si "cook":0 Luni-Vineri.`;
-    case "2-3ori":
-      return `IMPORTANT - Gatit de 2-3 ori pe saptamana:
-- Planifica ~3 zile cu gatit activ pe saptamana
-- Celelalte zile: resturi sau mese simple
-- Marcheaza cu "cook":1 zilele cu gatit si "cook":0 celelalte.`;
-    default:
-      return 'Marcheaza toate zilele cu "cook":1.';
-  }
+function dietCookingInstructions(cookTimesPerWeek) {
+  const n = Math.max(1, Math.min(7, Math.round(cookTimesPerWeek)));
+  const restDays = 7 - n;
+  if (n >= 7) return 'Marcheaza toate zilele cu "cook":1.';
+  const restDesc = n <= 2
+    ? "fructe proaspete, legume crude, smoothie-uri, iaurt, nuci - FARA gatit"
+    : "fructe, legume crude, salate simple, iaurt, branza - mese rapide sub 10 min";
+  return `IMPORTANT - Gatesti de ${n} ori pe saptamana (${restDays} zile FARA gatit greu):
+- Distribuie uniform ${n} sesiuni de gatit pe saptamana
+- Zilele cu gatit activ (cook:1): mese normale gatite
+- Zilele FARA gatit (cook:0): OBLIGATORIU ${restDesc}
+- Marcheaza exact ${n} zile/saptamana cu cook:1 si restul cu cook:0`;
 }
 
 const WEEKDAYS_RO = ["Duminica", "Luni", "Marti", "Miercuri", "Joi", "Vineri", "Sambata"];
@@ -138,11 +129,10 @@ async function dietCallWithRetry(prompt, validate, maxRetries = 3) {
 }
 
 async function dietGenerateWeek1(params) {
-  const { firstName, lastName, height, weight, age, country, preferredFoods, specialOccasions, currentMonth, currentYear, cookingFreq, includeRecipes } = params;
+  const { firstName, lastName, height, weight, age, country, preferredFoods, specialOccasions, currentMonth, currentYear, cookTimesPerWeek, includeRecipes } = params;
   const startWd = getWeekdayForDay(1);
-  const cookInstr = dietCookingFreqInstructions(cookingFreq);
-  const exMeal = includeRecipes ? "Terci de ovaz|380|10" : "Terci de ovaz|380";
-  const fmtNote = includeRecipes ? ", b=mic_dejun|kcal|min" : ", b=mic_dejun|kcal";
+  const cookInstr = dietCookingInstructions(cookTimesPerWeek);
+  const exMeal = includeRecipes ? "Terci ovaz cu miere|380|10" : "Terci ovaz cu miere|380";
 
   const prompt = `Esti nutritionist expert. Analiza pacient si planul zilelor 1-7.
 
@@ -156,20 +146,20 @@ ${cookInstr}
 Calculeaza IMC, greutate ideala (formula Devine), calorii pentru -0.5kg/saptamana.
 
 RASPUNDE DOAR cu JSON compact (fara text in afara):
-{"analysis":{"bmi":27.7,"bmi_category":"Supraponderal","ideal_weight":70,"ideal_weight_range":"65-72 kg","daily_calories":1700,"weekly_loss_kg":0.5,"expected_loss_month":2.0,"expected_weight_end":78.0},"recommendations":["rec1","rec2","rec3","rec4","rec5"],"days":[{"d":1,"w":"${startWd}","cook":1,"b":"${exMeal}","l":"Masa pranz|480${includeRecipes?"|45":""}","n":"Masa cina|320${includeRecipes?"|5":""}","s":"Gustare|180${includeRecipes?"|2":""}","t":1360}]}
+{"analysis":{"bmi":27.7,"bmi_category":"Supraponderal","ideal_weight":70,"ideal_weight_range":"65-72 kg","daily_calories":1700,"weekly_loss_kg":0.5,"expected_loss_month":2.0,"expected_weight_end":78.0},"recommendations":["rec1","rec2","rec3","rec4","rec5"],"days":[{"d":1,"w":"${startWd}","cook":1,"b":"${exMeal}","l":"Masa pranz|480${includeRecipes?"|45":""}","n":"Masa cina|320${includeRecipes?"|5":""}","s":"Fructe|180${includeRecipes?"|2":""}","t":1360}]}
 
-Format: d=nr_zi, w=ziua_sapt, cook=1/0${fmtNote}, l=pranz, n=cina, s=gustare, t=total
-Genereaza exact 7 zile (1-7). Nume mese scurte (max 5 cuvinte), variate, specifice ${country}.`;
+Format: d=nr_zi, w=ziua_sapt, cook=1/0, b=mic_dejun|kcal${includeRecipes?"|min":""}, l=pranz, n=cina, s=gustare, t=total
+Genereaza exact 7 zile (1-7). Mese variate, specifice ${country}, de sezon.`;
   return dietCallWithRetry(prompt, (p) => {
     if (!p.analysis || !p.days || p.days.length < 7) throw new Error(`invalid week1: ${p.days?.length} days`);
   });
 }
 
 async function dietGenerateWeekDays(params, startDay, endDay, dailyCalories) {
-  const { country, preferredFoods, specialOccasions, currentMonth, cookingFreq, includeRecipes } = params;
+  const { country, preferredFoods, specialOccasions, currentMonth, cookTimesPerWeek, includeRecipes } = params;
   const startWd = getWeekdayForDay(startDay);
   const count = endDay - startDay + 1;
-  const cookInstr = dietCookingFreqInstructions(cookingFreq);
+  const cookInstr = dietCookingInstructions(cookTimesPerWeek);
   const exMeal = includeRecipes ? "Masa|kcal|min" : "Masa|kcal";
 
   const prompt = `Esti nutritionist expert. Genereaza DOAR zilele ${startDay}-${endDay}.
@@ -185,7 +175,7 @@ ${cookInstr}
 RASPUNDE DOAR cu array JSON (fara {}, fara text in afara):
 [{"d":${startDay},"w":"${startWd}","cook":1,"b":"${exMeal}","l":"${exMeal}","n":"${exMeal}","s":"${exMeal}","t":1360}]
 
-Format: d=nr_zi, w=ziua_sapt, cook=1/0, b=mic_dejun|kcal${includeRecipes?"|min":""},l=pranz,n=cina,s=gustare,t=total
+Format: d=nr_zi, w=ziua_sapt, cook=1/0, b=mic_dejun|kcal${includeRecipes?"|min":""}, l=pranz, n=cina, s=gustare, t=total
 Genereaza exact ${count} zile (${startDay}-${endDay}). Mese variate, specifice ${country}, de sezon.`;
   return dietCallWithRetry(prompt, (p) => {
     if (!Array.isArray(p) || p.length < count - 1) throw new Error(`got ${p?.length} days, need ${count}`);
@@ -199,11 +189,39 @@ async function dietGenerateRecipes(params, mealNames) {
 ${mealNames.slice(0, 25).join(", ")}
 
 RASPUNDE DOAR cu JSON (fara text in afara):
-{"Nume masa":{"time":15,"ing":"ingredient1, ingredient2, ingredient3","steps":"1. Primul pas. 2. Al doilea pas. 3. Al treilea pas."},...}
+{"Nume masa":{"time":15,"ing":"ingredient1, ingredient2","steps":"1. Pasul 1. 2. Pasul 2."},...}
 
 Retete scurte: max 4 pasi, ingrediente comune, cantitati pentru 1 portie.`;
   return dietCallWithRetry(prompt, (p) => {
     if (typeof p !== "object" || Array.isArray(p)) throw new Error("invalid recipes");
+  });
+}
+
+async function dietGenerateShoppingList(params, allDays) {
+  const { country, currentMonth } = params;
+  const mealCounts = {};
+  allDays.forEach((day) => {
+    ["b", "l", "n", "s"].forEach((key) => {
+      if (day[key]) {
+        const name = String(day[key]).split("|")[0].trim();
+        if (name && name.length > 2) mealCounts[name] = (mealCounts[name] || 0) + 1;
+      }
+    });
+  });
+  const mealList = Object.entries(mealCounts).sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => `${name} (x${count})`).join(", ");
+
+  const prompt = `Genereaza lista de cumparaturi pentru 30 de zile, 1 persoana, bazata pe aceste mese:
+${mealList}
+
+Tara: ${country}, luna: ${currentMonth}
+
+RASPUNDE DOAR cu JSON organizat pe categorii (fara text in afara):
+{"Legume si fructe":[{"item":"rosii","qty":"1.5 kg"}],"Carne si peste":[{"item":"piept pui","qty":"1 kg"}],"Lactate si oua":[{"item":"oua","qty":"30 buc"}],"Cereale si leguminoase":[{"item":"orez","qty":"800g"}],"Condimente si altele":[{"item":"ulei masline","qty":"500ml"}]}
+
+Cantitati pentru 30 zile, 1 portie/zi, valori practice (100g, 250g, 500g, 1kg).`;
+  return dietCallWithRetry(prompt, (p) => {
+    if (typeof p !== "object" || Array.isArray(p) || Object.keys(p).length === 0) throw new Error("invalid shopping list");
   });
 }
 
@@ -221,7 +239,7 @@ function dietExtractMealNames(days) {
 }
 
 app.post("/api/diet", async (req, res) => {
-  const { firstName, lastName, height, weight, age, country, preferredFoods, specialOccasions, cookingFreq = "zilnic", includeRecipes = false } = req.body;
+  const { firstName, lastName, height, weight, age, country, preferredFoods, specialOccasions, cookTimesPerWeek = 3, includeRecipes = false } = req.body;
 
   if (!firstName || !lastName || !height || !weight || !age || !country) {
     return res.status(400).json({ error: "Toate câmpurile obligatorii trebuie completate." });
@@ -233,7 +251,7 @@ app.post("/api/diet", async (req, res) => {
 
   const params = {
     firstName, lastName, height, weight, age, country,
-    preferredFoods, specialOccasions, cookingFreq, includeRecipes,
+    preferredFoods, specialOccasions, cookTimesPerWeek, includeRecipes,
     currentMonth: months[today.getMonth()],
     currentYear: today.getFullYear(),
   };
@@ -250,19 +268,19 @@ app.post("/api/diet", async (req, res) => {
 
     const allDays = [...week1.days, ...week2Days, ...week3Days, ...week4Days];
 
-    let recipes = {};
-    if (includeRecipes) {
-      const mealNames = dietExtractMealNames(allDays);
-      recipes = await dietGenerateRecipes(params, mealNames);
-    }
+    const [recipes, shopping] = await Promise.all([
+      includeRecipes ? dietGenerateRecipes(params, dietExtractMealNames(allDays)) : Promise.resolve({}),
+      dietGenerateShoppingList(params, allDays),
+    ]);
 
     return res.status(200).json({
       analysis: week1.analysis,
       recommendations: week1.recommendations,
-      cookingFreq,
+      cookTimesPerWeek,
       includeRecipes,
       days: allDays,
       recipes,
+      shopping,
     });
   } catch (error) {
     console.error("Eroare generare plan:", error);

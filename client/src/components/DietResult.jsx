@@ -75,18 +75,12 @@ function getDate(dayOffset) {
   return `${date.getDate()} ${months[date.getMonth()]}`;
 }
 
-const COOKING_FREQ_LABELS = {
-  "zilnic": "Gătit zilnic",
-  "2-3ori": "Gătit 2–3x/săpt",
-  "weekend": "Gătit la weekend",
-  "rar": "Batch cooking",
-};
 
 export default function DietResult({ result, form, onBack }) {
   const printRef = useRef(null);
   const [openRecipe, setOpenRecipe] = useState(null);
 
-  const { analysis, recommendations = [], days = [], recipes = {}, cookingFreq = "zilnic", includeRecipes = false } = result;
+  const { analysis, recommendations = [], days = [], recipes = {}, shopping = {}, cookTimesPerWeek = 3, includeRecipes = false } = result;
 
   const normalizedDays = days.map(normalizeDay);
   const weeks = [];
@@ -96,7 +90,17 @@ export default function DietResult({ result, form, onBack }) {
 
   const bmiColor = BMI_COLORS[analysis?.bmi_category] || "#34d399";
   const hasRecipes = includeRecipes && Object.keys(recipes).length > 0;
-  const showCookBadge = cookingFreq !== "zilnic";
+  const hasShopping = Object.keys(shopping).length > 0;
+  const showCookBadge = cookTimesPerWeek < 7;
+  const cookLabel = cookTimesPerWeek >= 7 ? "Gătit zilnic" : `Gătit ${cookTimesPerWeek}×/săpt`;
+
+  const CATEGORY_ICONS = {
+    "Legume si fructe": "🥦",
+    "Carne si peste": "🥩",
+    "Lactate si oua": "🧀",
+    "Cereale si leguminoase": "🌾",
+    "Condimente si altele": "🫙",
+  };
 
   const handlePrint = () => {
     const t = document.title;
@@ -194,7 +198,7 @@ export default function DietResult({ result, form, onBack }) {
               </p>
               <div className="flex flex-wrap gap-2 mt-2">
                 <span className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded-full">
-                  🍳 {COOKING_FREQ_LABELS[cookingFreq] || cookingFreq}
+                  🍳 {cookLabel}
                 </span>
                 {hasRecipes && (
                   <span className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded-full">
@@ -370,6 +374,36 @@ export default function DietResult({ result, form, onBack }) {
           </div>
         )}
 
+        {/* Shopping list */}
+        {hasShopping && (
+          <div className="space-y-3">
+            <h3 className="text-emerald-400 font-semibold text-base border-b border-gray-800 pb-2">
+              🛒 Lista de Cumpărături — 30 zile
+            </h3>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {Object.entries(shopping).map(([category, items]) => {
+                const icon = CATEGORY_ICONS[category] || "🛍️";
+                return (
+                  <div key={category} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xl">{icon}</span>
+                      <span className="text-sm font-semibold text-white">{category}</span>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {Array.isArray(items) && items.map((item, i) => (
+                        <li key={i} className="flex items-center justify-between text-xs">
+                          <span className="text-gray-300">{item.item}</span>
+                          <span className="text-emerald-400 font-medium ml-2 flex-shrink-0">{item.qty}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Bottom print bar */}
         <div className="border-t border-gray-800 pt-4 flex flex-wrap gap-3 justify-center">
           <button onClick={handlePrint} className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2.5 px-6 rounded-lg transition-colors">
@@ -394,7 +428,7 @@ export default function DietResult({ result, form, onBack }) {
                 <div className="print-subtitle">
                   {form.firstName} {form.lastName} · {form.height} cm · {form.weight} kg · {form.age} ani · {form.country}
                 </div>
-                <div className="print-meta">🍳 {COOKING_FREQ_LABELS[cookingFreq]} {hasRecipes ? "· Include rețete" : ""}</div>
+                <div className="print-meta">🍳 {cookLabel} {hasRecipes ? "· Include rețete" : ""}</div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div className="print-meta">Generat: {getTodayFormatted()}</div>
@@ -430,6 +464,36 @@ export default function DietResult({ result, form, onBack }) {
             <PrintWeek week={week} weekIndex={wi + 1} totalWeeks={weeks.length} showCookBadge={showCookBadge} showTime={includeRecipes} />
           </div>
         ))}
+
+        {hasShopping && (
+          <div className="print-page">
+            <div className="print-header" style={{ borderBottomWidth: 1 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span className="print-title" style={{ fontSize: "16pt" }}>🛒 Lista de Cumpărături — 30 zile</span>
+                <span className="print-meta">{form.firstName} {form.lastName} · {getTodayFormatted()}</span>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px" }}>
+              {Object.entries(shopping).map(([category, items]) => (
+                <div key={category} style={{ border: "1px solid #d1fae5", borderRadius: 8, padding: "10px 14px" }}>
+                  <div style={{ fontWeight: "bold", color: "#14532d", fontSize: "10pt", marginBottom: 8 }}>
+                    {CATEGORY_ICONS[category] || "🛍️"} {category}
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9pt" }}>
+                    <tbody>
+                      {Array.isArray(items) && items.map((item, i) => (
+                        <tr key={i}>
+                          <td style={{ padding: "2px 0", color: "#374151" }}>{item.item}</td>
+                          <td style={{ padding: "2px 0", color: "#166534", fontWeight: "bold", textAlign: "right" }}>{item.qty}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {hasRecipes && (
           <div className="print-page print-recipe-page">
