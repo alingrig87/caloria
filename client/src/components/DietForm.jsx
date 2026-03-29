@@ -10,6 +10,13 @@ const COUNTRIES = [
   "Australia", "Japonia", "China", "India", "Israel", "Egipt", "Africa de Sud"
 ];
 
+const COOKING_FREQ = [
+  { val: "zilnic", label: "Gătesc zilnic", desc: "Mese proaspete în fiecare zi" },
+  { val: "2-3ori", label: "De 2–3 ori pe săptămână", desc: "Mix de gătit și resturi" },
+  { val: "weekend", label: "Doar la weekend", desc: "Pregătesc totul Sâmbătă–Duminică" },
+  { val: "rar", label: "Cât mai rar — batch cooking", desc: "Gătesc 1–2x/săpt, mănânc mai zile" },
+];
+
 const inputClass =
   "w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors placeholder-gray-500";
 
@@ -25,13 +32,16 @@ export default function DietForm() {
     country: "Romania",
     preferredFoods: "",
     specialOccasions: "",
+    cookingFreq: "zilnic",
+    includeRecipes: false,
   });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
 
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, type, value, checked } = e.target;
+    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
   const handleSubmit = async (e) => {
@@ -77,27 +87,13 @@ export default function DietForm() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Prenume <span className="text-red-400">*</span></label>
-              <input
-                type="text"
-                name="firstName"
-                value={form.firstName}
-                onChange={handleChange}
-                required
-                placeholder="Ion"
-                className={inputClass}
-              />
+              <input type="text" name="firstName" value={form.firstName} onChange={handleChange}
+                required placeholder="Ion" className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>Nume <span className="text-red-400">*</span></label>
-              <input
-                type="text"
-                name="lastName"
-                value={form.lastName}
-                onChange={handleChange}
-                required
-                placeholder="Popescu"
-                className={inputClass}
-              />
+              <input type="text" name="lastName" value={form.lastName} onChange={handleChange}
+                required placeholder="Popescu" className={inputClass} />
             </div>
           </div>
 
@@ -105,61 +101,26 @@ export default function DietForm() {
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className={labelClass}>Înălțime (cm) <span className="text-red-400">*</span></label>
-              <input
-                type="number"
-                name="height"
-                value={form.height}
-                onChange={handleChange}
-                required
-                min="100"
-                max="250"
-                placeholder="170"
-                className={inputClass}
-              />
+              <input type="number" name="height" value={form.height} onChange={handleChange}
+                required min="100" max="250" placeholder="170" className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>Greutate (kg) <span className="text-red-400">*</span></label>
-              <input
-                type="number"
-                name="weight"
-                value={form.weight}
-                onChange={handleChange}
-                required
-                min="30"
-                max="300"
-                placeholder="75"
-                className={inputClass}
-              />
+              <input type="number" name="weight" value={form.weight} onChange={handleChange}
+                required min="30" max="300" placeholder="75" className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>Vârstă (ani) <span className="text-red-400">*</span></label>
-              <input
-                type="number"
-                name="age"
-                value={form.age}
-                onChange={handleChange}
-                required
-                min="10"
-                max="120"
-                placeholder="35"
-                className={inputClass}
-              />
+              <input type="number" name="age" value={form.age} onChange={handleChange}
+                required min="10" max="120" placeholder="35" className={inputClass} />
             </div>
           </div>
 
           {/* Tara */}
           <div>
             <label className={labelClass}>Țara <span className="text-red-400">*</span></label>
-            <select
-              name="country"
-              value={form.country}
-              onChange={handleChange}
-              required
-              className={inputClass}
-            >
-              {COUNTRIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
+            <select name="country" value={form.country} onChange={handleChange} required className={inputClass}>
+              {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 
@@ -169,33 +130,70 @@ export default function DietForm() {
               Alimente și mâncăruri preferate
               <span className="text-gray-500 font-normal ml-2">(descrie ce îți place)</span>
             </label>
-            <textarea
-              name="preferredFoods"
-              value={form.preferredFoods}
-              onChange={handleChange}
-              rows={4}
-              placeholder="Ex: Îmi plac pastele cu sos de roșii, sarmalele, ciorbele, fructele proaspete. Nu consum carne de porc. Îmi place mult brânza și ouăle. Dimineața prefer ceva ușor..."
-              className={`${inputClass} resize-none`}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Cu cât descrii mai detaliat, cu atât planul va fi mai personalizat.
-            </p>
+            <textarea name="preferredFoods" value={form.preferredFoods} onChange={handleChange}
+              rows={4} className={`${inputClass} resize-none`}
+              placeholder="Ex: Îmi plac pastele cu sos de roșii, sarmalele, ciorbele, fructele proaspete. Nu consum carne de porc..." />
+            <p className="text-xs text-gray-500 mt-1">Cu cât descrii mai detaliat, cu atât planul va fi mai personalizat.</p>
           </div>
 
-          {/* Sarbatori / ocazii speciale */}
+          {/* Sarbatori */}
           <div>
             <label className={labelClass}>
-              Sărbători sau ocazii speciale în luna următoare
+              Sărbători sau ocazii speciale
               <span className="text-gray-500 font-normal ml-2">(opțional)</span>
             </label>
-            <textarea
-              name="specialOccasions"
-              value={form.specialOccasions}
-              onChange={handleChange}
-              rows={3}
-              placeholder="Ex: Pe 6 aprilie este Paștele, vreau să am miel și cozonac în meniu. Pe 15 este ziua mea de naștere..."
-              className={`${inputClass} resize-none`}
-            />
+            <textarea name="specialOccasions" value={form.specialOccasions} onChange={handleChange}
+              rows={2} className={`${inputClass} resize-none`}
+              placeholder="Ex: Paște pe 6 aprilie, zi de naștere pe 15..." />
+          </div>
+
+          {/* Preferinte gatit */}
+          <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-lg">🍳</span>
+              <span className="text-sm font-semibold text-white">Preferințe gătit</span>
+            </div>
+
+            <div className="space-y-2">
+              {COOKING_FREQ.map((opt) => (
+                <label key={opt.val} className={`flex items-start gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${
+                  form.cookingFreq === opt.val
+                    ? "bg-emerald-900/40 border border-emerald-700/50"
+                    : "hover:bg-gray-700/40 border border-transparent"
+                }`}>
+                  <input
+                    type="radio"
+                    name="cookingFreq"
+                    value={opt.val}
+                    checked={form.cookingFreq === opt.val}
+                    onChange={handleChange}
+                    className="mt-0.5 accent-emerald-500"
+                  />
+                  <div>
+                    <div className="text-sm text-white font-medium">{opt.label}</div>
+                    <div className="text-xs text-gray-400">{opt.desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <div className="border-t border-gray-700 pt-3">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  name="includeRecipes"
+                  checked={form.includeRecipes}
+                  onChange={handleChange}
+                  className="w-4 h-4 accent-emerald-500"
+                />
+                <div>
+                  <div className="text-sm text-white font-medium group-hover:text-emerald-400 transition-colors">
+                    📋 Vreau rețete cu ingrediente, pași și timp de preparare
+                  </div>
+                  <div className="text-xs text-gray-400">Fiecare masă va avea rețeta completă</div>
+                </div>
+              </label>
+            </div>
           </div>
 
           {error && (
@@ -215,7 +213,7 @@ export default function DietForm() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Generez planul alimentar... (30-60 sec)
+                {form.includeRecipes ? "Generez plan + rețete... (45-90 sec)" : "Generez planul alimentar... (30-60 sec)"}
               </>
             ) : (
               <>🥗 Generează Plan Alimentar 30 Zile</>
@@ -224,7 +222,9 @@ export default function DietForm() {
 
           {loading && (
             <div className="text-center text-xs text-gray-500">
-              Claude analizează profilul tău și creează un meniu personalizat cu alimente locale și de sezon...
+              {form.includeRecipes
+                ? "Claude generează meniurile și rețetele complete cu instrucțiuni de preparare..."
+                : "Claude analizează profilul tău și creează un meniu personalizat cu alimente locale și de sezon..."}
             </div>
           )}
         </form>
