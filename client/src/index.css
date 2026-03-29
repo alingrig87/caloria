@@ -13,3 +13,16 @@ body {
   color: #e5e7eb;
   min-height: 100vh;
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  nav, header, footer {
+    display: none !important;
+  }
+}
