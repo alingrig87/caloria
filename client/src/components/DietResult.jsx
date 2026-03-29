@@ -1,18 +1,46 @@
 import { useRef } from "react";
 
-const MEAL_ICONS = {
-  breakfast: "🌅",
-  lunch: "☀️",
-  dinner: "🌙",
-  snack: "🍎",
-};
+const MEALS = [
+  { key: "b", icon: "🌅", label: "Mic dejun" },
+  { key: "l", icon: "☀️", label: "Prânz" },
+  { key: "n", icon: "🌙", label: "Cină" },
+  { key: "s", icon: "🍎", label: "Gustare" },
+];
 
-const MEAL_LABELS = {
-  breakfast: "Mic dejun",
-  lunch: "Prânz",
-  dinner: "Cină",
-  snack: "Gustare",
-};
+// Parse "Meal name|380" → { name, cal }
+function parseMeal(raw) {
+  if (!raw) return { name: "-", cal: 0 };
+  const parts = String(raw).split("|");
+  return { name: parts[0] || "-", cal: parseInt(parts[1]) || 0 };
+}
+
+// Normalize day: support both compact {d,w,b,l,n,s,t} and legacy {day,weekday,breakfast,...}
+function normalizeDay(day) {
+  if (day.b !== undefined) {
+    // compact format
+    return {
+      day: day.d,
+      weekday: day.w,
+      breakfast: parseMeal(day.b),
+      lunch: parseMeal(day.l),
+      dinner: parseMeal(day.n),
+      snack: parseMeal(day.s),
+      total: day.t,
+    };
+  }
+  // legacy format
+  return {
+    day: day.day,
+    weekday: day.weekday,
+    breakfast: typeof day.breakfast === "object" ? day.breakfast : parseMeal(day.breakfast),
+    lunch: typeof day.lunch === "object" ? day.lunch : parseMeal(day.lunch),
+    dinner: typeof day.dinner === "object" ? day.dinner : parseMeal(day.dinner),
+    snack: typeof day.snack === "object" ? day.snack : parseMeal(day.snack),
+    total: day.total,
+  };
+}
+
+const MEAL_KEYS = ["breakfast", "lunch", "dinner", "snack"];
 
 const BMI_COLORS = {
   "Subponderal": "#60a5fa",
@@ -52,9 +80,11 @@ export default function DietResult({ result, form, onBack }) {
 
   const { analysis, recommendations = [], days = [] } = result;
 
+  const normalizedDays = days.map(normalizeDay);
+
   const weeks = [];
-  for (let i = 0; i < days.length; i += 7) {
-    weeks.push(days.slice(i, i + 7));
+  for (let i = 0; i < normalizedDays.length; i += 7) {
+    weeks.push(normalizedDays.slice(i, i + 7));
   }
 
   const bmiColor = BMI_COLORS[analysis?.bmi_category] || "#34d399";
@@ -215,16 +245,19 @@ export default function DietResult({ result, form, onBack }) {
                       <span className="text-gray-400 text-xs">{dateInfo.short}</span>
                     </div>
                     <div className="p-3 space-y-2">
-                      {["breakfast", "lunch", "dinner", "snack"].map((meal) => (
-                        <div key={meal} className="flex gap-2 items-start">
-                          <span className="text-base flex-shrink-0 mt-0.5">{MEAL_ICONS[meal]}</span>
-                          <div className="min-w-0">
-                            <div className="text-xs text-gray-500">{MEAL_LABELS[meal]}</div>
-                            <div className="text-xs text-gray-200 leading-snug">{day[meal]?.name}</div>
+                      {MEALS.map(({ key, icon, label }) => {
+                        const meal = day[key === "b" ? "breakfast" : key === "l" ? "lunch" : key === "n" ? "dinner" : "snack"];
+                        return (
+                          <div key={key} className="flex gap-2 items-start">
+                            <span className="text-base flex-shrink-0 mt-0.5">{icon}</span>
+                            <div className="min-w-0">
+                              <div className="text-xs text-gray-500">{label}</div>
+                              <div className="text-xs text-gray-200 leading-snug">{meal?.name}</div>
+                            </div>
+                            <span className="text-xs text-gray-600 ml-auto flex-shrink-0 mt-0.5">{meal?.cal}</span>
                           </div>
-                          <span className="text-xs text-gray-600 ml-auto flex-shrink-0 mt-0.5">{day[meal]?.cal}</span>
-                        </div>
-                      ))}
+                        );
+                      })}
                       <div className="border-t border-gray-800 pt-2 flex justify-between items-center">
                         <span className="text-xs text-gray-500">Total:</span>
                         <span className="text-sm font-bold text-emerald-400">{day.total} kcal</span>
@@ -305,7 +338,7 @@ export default function DietResult({ result, form, onBack }) {
           )}
 
           {/* Week 1 */}
-          {weeks[0] && <PrintWeek week={weeks[0]} weekIndex={0} />}
+          {weeks[0] && <PrintWeek week={weeks[0]} weekIndex={0} totalWeeks={weeks.length} />}
         </div>
 
         {/* Pages 2+: Remaining weeks */}
@@ -319,7 +352,7 @@ export default function DietResult({ result, form, onBack }) {
                 <span className="print-meta">Generat: {getTodayFormatted()}</span>
               </div>
             </div>
-            <PrintWeek week={week} weekIndex={wi + 1} />
+            <PrintWeek week={week} weekIndex={wi + 1} totalWeeks={weeks.length} />
           </div>
         ))}
       </div>
@@ -327,7 +360,7 @@ export default function DietResult({ result, form, onBack }) {
   );
 }
 
-function PrintWeek({ week, weekIndex }) {
+function PrintWeek({ week, weekIndex, totalWeeks }) {
   const startDay = weekIndex * 7 + 1;
   const endDay = startDay + week.length - 1;
 
@@ -384,7 +417,7 @@ function PrintWeek({ week, weekIndex }) {
           ))}
         </tbody>
       </table>
-      {weekIndex === Math.ceil(30 / 7) - 1 && (
+      {weekIndex === totalWeeks - 1 && (
         <div className="print-footer">
           Plan generat cu Calorie Scanner · {new Date().getFullYear()} · Estimările sunt orientative — consultați un medic sau nutriționist pentru sfaturi medicale personalizate.
         </div>
