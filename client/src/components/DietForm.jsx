@@ -17,6 +17,54 @@ const COOKING_FREQ = [
   { val: "rar", label: "Cât mai rar — batch cooking", desc: "Gătesc 1–2x/săpt, mănânc mai zile" },
 ];
 
+const TEST_PROFILES = [
+  {
+    label: "🇷🇴 Maria, batch cooking",
+    data: {
+      firstName: "Maria", lastName: "Ionescu", height: "165", weight: "78", age: "35",
+      country: "Romania", cookingFreq: "rar", includeRecipes: true,
+      preferredFoods: "Îmi plac sarmalele, ciorbele, mâncărurile tradiționale românești. Consum ouă, brânză, legume. Nu mănânc porc.",
+      specialOccasions: "Paște pe 6 aprilie - vreau miel și cozonac tradițional",
+    }
+  },
+  {
+    label: "🇮🇹 Marco, gătit zilnic",
+    data: {
+      firstName: "Marco", lastName: "Rossi", height: "178", weight: "92", age: "42",
+      country: "Italia", cookingFreq: "zilnic", includeRecipes: true,
+      preferredFoods: "Ador pasta, pizza, risotto, bruschette, pește mediteranean. Consum mult ulei de măsline și legume proaspete.",
+      specialOccasions: "",
+    }
+  },
+  {
+    label: "🇺🇸 Alex, weekend cooking",
+    data: {
+      firstName: "Alex", lastName: "Johnson", height: "182", weight: "95", age: "28",
+      country: "SUA", cookingFreq: "weekend", includeRecipes: false,
+      preferredFoods: "Îmi plac grillul, burgerii, salatele, smoothie-urile. Mănânc mult pui și curcan. Încerc să evit fast-food.",
+      specialOccasions: "Super Bowl pe 9 februarie - vreau ceva festiv",
+    }
+  },
+  {
+    label: "🇯🇵 Yuki, 2-3x/săpt",
+    data: {
+      firstName: "Yuki", lastName: "Tanaka", height: "158", weight: "65", age: "31",
+      country: "Japonia", cookingFreq: "2-3ori", includeRecipes: true,
+      preferredFoods: "Pește, orez, supă miso, tofu, legume wok, ramen. Prefer mâncăruri ușoare și sănătoase.",
+      specialOccasions: "",
+    }
+  },
+  {
+    label: "🇩🇪 Klaus, vegetarian",
+    data: {
+      firstName: "Klaus", lastName: "Müller", height: "175", weight: "88", age: "50",
+      country: "Germania", cookingFreq: "2-3ori", includeRecipes: false,
+      preferredFoods: "Vegetarian - nu mănânc carne deloc. Îmi plac leguminoasele, cerealele, brânzeturile, ouăle, legumele coapte.",
+      specialOccasions: "Crăciun pe 25 decembrie - vreau mâncare tradițională germană fără carne",
+    }
+  },
+];
+
 const inputClass =
   "w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors placeholder-gray-500";
 
@@ -79,6 +127,23 @@ export default function DietForm() {
           <div>
             <h2 className="text-xl font-bold text-white">Generator Plan Alimentar</h2>
             <p className="text-sm text-gray-400">Plan personalizat de 30 de zile, adaptat la tara si sezon</p>
+          </div>
+        </div>
+
+        {/* Test profiles */}
+        <div className="mb-5">
+          <p className="text-xs text-gray-500 mb-2">Date de test rapide:</p>
+          <div className="flex flex-wrap gap-2">
+            {TEST_PROFILES.map((profile, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setForm(prev => ({ ...prev, ...profile.data }))}
+                className="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-emerald-600 text-gray-300 hover:text-emerald-400 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                {profile.label}
+              </button>
+            ))}
           </div>
         </div>
 
