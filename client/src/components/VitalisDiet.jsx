@@ -253,11 +253,11 @@ function OptionsBlock({ time, icon, type, options, hint }) {
         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeBase}`}>{type}</span>
         <span className="text-xs text-gray-400">{hint}</span>
       </div>
-      <div className="ml-[4.25rem] space-y-2">
+      <div className="space-y-2">
         {options.map((opt, i) => {
           const s = OPT[opt.label];
           return (
-            <div key={i} className={`flex items-start gap-3 rounded-lg px-3 py-2.5 border transition-colors ${s.row}`}>
+            <div key={i} className={`flex items-start gap-3 rounded-lg px-3 py-2.5 border transition-colors w-full ${s.row}`}>
               <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
                 <span className="text-sm">{s.icon}</span>
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${s.badge}`}>{opt.label}</span>
