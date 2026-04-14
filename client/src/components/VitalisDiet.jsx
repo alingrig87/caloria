@@ -308,19 +308,7 @@ export default function VitalisDiet() {
         </div>
       </div>
 
-      {/* Rules */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <h3 className="font-semibold text-gray-800 mb-3 text-base">Reguli de bază</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {RULES.map((r, i) => (
-            <div key={i} className="flex gap-2 text-sm text-gray-700">
-              <span className="shrink-0">{r.icon}</span><span>{r.text}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Week tabs */}
+      {/* Main tabs */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="flex border-b border-gray-200">
           {WEEKS.map((w, wi) => (
@@ -328,7 +316,7 @@ export default function VitalisDiet() {
               key={wi}
               onClick={() => { setActiveWeek(wi); setActiveDay(0); }}
               className={`flex-1 py-3 text-sm font-semibold transition-colors ${
-                activeWeek === wi
+                activeWeek === wi && activeWeek !== -1
                   ? "bg-teal-600 text-white"
                   : "text-gray-500 hover:bg-gray-50"
               }`}
@@ -336,7 +324,31 @@ export default function VitalisDiet() {
               Săptămâna {w.week}
             </button>
           ))}
+          <button
+            onClick={() => setActiveWeek(-1)}
+            className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+              activeWeek === -1
+                ? "bg-teal-600 text-white"
+                : "text-gray-500 hover:bg-gray-50"
+            }`}
+          >
+            📋 Reguli
+          </button>
         </div>
+
+        {activeWeek === -1 && (
+          <div className="p-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {RULES.map((r, i) => (
+                <div key={i} className="flex gap-2 text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2.5">
+                  <span className="shrink-0">{r.icon}</span><span>{r.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeWeek !== -1 && <>
 
         {/* Day tabs */}
         <div className="flex border-b border-gray-100 bg-gray-50">
@@ -417,6 +429,7 @@ export default function VitalisDiet() {
             />
           </div>
         </div>
+        </>}
       </div>
 
       {/* Legend */}
