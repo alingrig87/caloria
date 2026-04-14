@@ -228,16 +228,6 @@ const WEEKS = [
   ]},
 ];
 
-const RULES = [
-  { icon: "✅", text: "Mic dejun: ouă, iaurt sau ovăz cu legume — nu sări peste el" },
-  { icon: "✅", text: "Prânz și cină: alegi zilnic între fără gătit, cuptor sau airfryer" },
-  { icon: "✅", text: "Apă: minimum 2L pe zi, un pahar înainte de fiecare masă" },
-  { icon: "✅", text: "Grăsimi sănătoase: ulei de măsline, avocado, nuci, semințe" },
-  { icon: "❌", text: "Fără zahăr adăugat, băuturi îndulcite sau sucuri" },
-  { icon: "❌", text: "Fără pâine, paste, orez, cartofi (prima săptămână strict)" },
-  { icon: "❌", text: "Fără mezeluri, produse procesate sau afumate" },
-  { icon: "⚠️", text: "Gustarea — opțională, numai dacă simți foame reală" },
-];
 
 function OptionsBlock({ time, icon, type, options, hint }) {
   const badgeBase = type === "Prânz"
@@ -282,32 +272,6 @@ export default function VitalisDiet() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-teal-600 to-green-700 text-white rounded-2xl p-6 shadow-lg">
-        <h2 className="text-2xl font-bold mb-1">Dieta Vitalis</h2>
-        <p className="text-teal-100 text-sm mb-5">14 zile · Alegi zilnic: fără gătit, cuptor sau airfryer</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-teal-200 mb-2">Structura zilei</p>
-            <div className="space-y-1.5 text-sm">
-              <div className="flex items-center gap-2"><span>🌅</span><span><strong>08:00</strong> — Mic dejun (ouă / iaurt / ovăz)</span></div>
-              <div className="flex items-center gap-2"><span>☀️</span><span><strong>13:00</strong> — Prânz · 🥗 fără gătit / 🔥 cuptor / 💨 airfryer</span></div>
-              <div className="flex items-center gap-2"><span>🍎</span><span><strong>16:30</strong> — Gustare <span className="text-teal-300">(opțional)</span></span></div>
-              <div className="flex items-center gap-2"><span>🌙</span><span><strong>19:00</strong> — Cină · 🥗 fără gătit / 🔥 cuptor / 💨 airfryer</span></div>
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-teal-200 mb-2">Ce să aștepți după 2 săptămâni</p>
-            <div className="space-y-1.5 text-sm">
-              <div className="flex items-start gap-2"><span>⚖️</span><span>Scădere în greutate de <strong>3–5 kg</strong></span></div>
-              <div className="flex items-start gap-2"><span>⚡</span><span>Energie mai bună și somn mai odihnitor</span></div>
-              <div className="flex items-start gap-2"><span>🫁</span><span>Reducerea balonării și senzație de ușurință</span></div>
-              <div className="flex items-start gap-2"><span>💪</span><span>Masă musculară păstrată datorită proteinei</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main tabs */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="flex border-b border-gray-200">
@@ -316,7 +280,7 @@ export default function VitalisDiet() {
               key={wi}
               onClick={() => { setActiveWeek(wi); setActiveDay(0); }}
               className={`flex-1 py-3 text-sm font-semibold transition-colors ${
-                activeWeek === wi && activeWeek !== -1
+                activeWeek === wi
                   ? "bg-teal-600 text-white"
                   : "text-gray-500 hover:bg-gray-50"
               }`}
@@ -324,29 +288,7 @@ export default function VitalisDiet() {
               Săptămâna {w.week}
             </button>
           ))}
-          <button
-            onClick={() => setActiveWeek(-1)}
-            className={`flex-1 py-3 text-sm font-semibold transition-colors ${
-              activeWeek === -1
-                ? "bg-teal-600 text-white"
-                : "text-gray-500 hover:bg-gray-50"
-            }`}
-          >
-            📋 Reguli
-          </button>
         </div>
-
-        {activeWeek === -1 && (
-          <div className="p-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {RULES.map((r, i) => (
-                <div key={i} className="flex gap-2 text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2.5">
-                  <span className="shrink-0">{r.icon}</span><span>{r.text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {activeWeek !== -1 && <>
 
@@ -432,24 +374,6 @@ export default function VitalisDiet() {
         </>}
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-3 text-sm">
-        {Object.entries(OPT).map(([label, s]) => (
-          <div key={label} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${s.row}`}>
-            <span>{s.icon}</span>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.badge}`}>{label}</span>
-            <span className="text-xs text-gray-500">
-              {label === "Fără gătit" && "— conserve, iaurt, ouă fierte, brânză, crudități"}
-              {label === "Cuptor" && "— 180–200°C, 18–30 min"}
-              {label === "Airfryer" && "— 190–200°C, 10–18 min"}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-        <strong>Notă:</strong> Caloriile sunt estimative. La fiecare masă alegi o singură variantă — poți combina liber (ex. prânz fără gătit + cină la airfryer). Consultați un medic sau nutriționist înainte de a începe orice dietă.
-      </div>
     </div>
   );
 }
