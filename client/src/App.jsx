@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, collection, query, orderBy } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import AuthScreen from "./components/AuthScreen";
 import ProfileSetup from "./components/ProfileSetup";
@@ -11,6 +11,8 @@ import DietForm from "./components/DietForm";
 import VitalisDiet from "./components/VitalisDiet";
 import Journal from "./components/Journal";
 import ProfileRefresh from "./components/ProfileRefresh";
+import { useEstimatedWeight } from "./hooks/useEstimatedWeight";
+import { calcBMR, formatDateStr } from "./utils/calculations";
 
 function ScannerTab() {
   const [image, setImage] = useState(null);
@@ -83,6 +85,20 @@ function ScannerTab() {
   );
 }
 
+function NavWeight({ profile, objectives }) {
+  const today = formatDateStr();
+  const activeObjective = objectives.find((o) => o.endDate >= today);
+  const bmr = profile ? calcBMR(profile.sex, profile.age, profile.height, profile.weight) : 0;
+  const { estWeight, loading } = useEstimatedWeight(profile, bmr, activeObjective);
+  if (!activeObjective || loading || !estWeight) return null;
+  return (
+    <div className="flex flex-col items-end">
+      <span className="text-xs text-gray-400 leading-none">estimat</span>
+      <span className="text-base font-bold text-teal-700 leading-tight">{estWeight.toFixed(1)} kg</span>
+    </div>
+  );
+}
+
 function LoadingScreen() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-green-50 gap-6">
@@ -103,7 +119,8 @@ export default function App() {
   // localStorage before first render — skip the loading screen for returning users
   const [user, setUser] = useState(auth.currentUser); // null | User (never undefined)
   const [profile, setProfile] = useState(auth.currentUser ? undefined : null);
-  const [activeTab, setActiveTab] = useState("vitalis");
+  const [objectives, setObjectives] = useState([]);
+  const [activeTab, setActiveTab] = useState("journal");
 
   // Auth + profile in one effect — avoids the render-cycle gap between the two
   useEffect(() => {
@@ -124,6 +141,13 @@ export default function App() {
     });
     return () => { authUnsub(); if (profileUnsub) profileUnsub(); };
   }, []);
+
+  // Load objectives for navbar weight
+  useEffect(() => {
+    if (!user) { setObjectives([]); return; }
+    const q = query(collection(db, "users", user.uid, "objectives"), orderBy("createdAt", "desc"));
+    return onSnapshot(q, (snap) => setObjectives(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+  }, [user]);
 
   // Profile is still loading (user is known but profile doc not yet fetched)
   if (profile === undefined) {
@@ -167,6 +191,7 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <NavWeight profile={profile} objectives={objectives} />
             {user.photoURL && (
               <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full border border-gray-200" />
             )}
