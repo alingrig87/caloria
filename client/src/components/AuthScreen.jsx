@@ -12,7 +12,7 @@ export default function AuthScreen() {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err) {
-      setError("Autentificarea a eșuat. Încearcă din nou.");
+      setError(err.code ? `${err.code}` : err.message);
       setLoading(false);
     }
   };
