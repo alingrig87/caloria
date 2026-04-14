@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   doc, getDoc, setDoc, updateDoc, addDoc,
-  collection, query, where, orderBy, getDocs, onSnapshot, Timestamp,
+  collection, query, where, orderBy, getDocs, onSnapshot, Timestamp, limit,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import {
@@ -40,7 +40,22 @@ function useEstimatedWeight(profile, bmr) {
       return formatDateStr(d);
     });
 
+    // Fetch activities for the date range
+    const activitiesPromise = getDocs(query(
+      collection(db, "users", uid, "activities"),
+      where("date", ">=", dates[0]),
+      where("date", "<=", dates[dates.length - 1])
+    )).then((snap) => {
+      const map = {};
+      snap.docs.forEach((d) => {
+        const a = d.data();
+        map[a.date] = (map[a.date] || 0) + (a.caloriesBurned || 0);
+      });
+      return map;
+    }).catch(() => ({})); // silently ignore index errors
+
     Promise.all([
+      activitiesPromise,
       // meals per day
       ...dates.map((date) =>
         getDocs(query(collection(db, "users", uid, "meals"), where("date", "==", date)))
@@ -51,10 +66,10 @@ function useEstimatedWeight(profile, bmr) {
         getDoc(doc(db, "users", uid, "dailyLogs", date))
           .then((snap) => ({ date, steps: snap.exists() ? (snap.data().steps || 0) : 0 }))
       ),
-    ]).then((results) => {
+    ]).then(([activityMap, ...rest]) => {
       const mealMap = {};
       const stepsMap = {};
-      results.forEach((r) => {
+      rest.forEach((r) => {
         if ("eaten" in r) mealMap[r.date] = r.eaten;
         if ("steps" in r) stepsMap[r.date] = r.steps;
       });
@@ -62,7 +77,8 @@ function useEstimatedWeight(profile, bmr) {
       const days = dates.map((date) => {
         const eaten = mealMap[date] || 0;
         const stepsKcal = calcStepsCalories(stepsMap[date] || 0, profile.weight);
-        const burned = bmr + stepsKcal;
+        const activityKcal = activityMap[date] || 0;
+        const burned = bmr + stepsKcal + activityKcal;
         // Dacă nu s-a logat nimic, presupunem că s-a mâncat la budget (conservator)
         const budget = Math.max(1200, calcTDEE(bmr, profile.activityLevel) - 500);
         const effectiveEaten = eaten > 0 ? eaten : budget;
@@ -159,7 +175,7 @@ function CheckInModal({ profile, bmr, tdee, onClose, onDone }) {
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Greutatea actuală (kg)</label>
           <input type="number" step="0.1" min="30" max="300" value={weight}
             onChange={(e) => setWeight(e.target.value)} placeholder="ex. 73.5"
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-400" />
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
           {actualLoss !== null && (
             <p className={`text-sm font-bold mt-1.5 ${Number(actualLoss) >= 0 ? "text-teal-700" : "text-red-500"}`}>
               {Number(actualLoss) >= 0 ? `Ai slăbit ${actualLoss} kg` : `Ai luat ${Math.abs(Number(actualLoss))} kg`}
@@ -168,7 +184,7 @@ function CheckInModal({ profile, bmr, tdee, onClose, onDone }) {
           )}
         </div>
         <textarea placeholder="Note opționale..." value={note} onChange={(e) => setNote(e.target.value)}
-          rows={2} className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-400 resize-none" />
+          rows={2} className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400 resize-none" />
         <div className="flex gap-3">
           <button onClick={onClose} className="px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-500 hover:bg-gray-50">Anulează</button>
           <button onClick={handleSave} disabled={!weight || saving}
@@ -211,12 +227,12 @@ function EditProfileModal({ profile, onClose, onDone }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Greutate curentă (kg)</label>
           <input type="number" step="0.1" value={form.weight} onChange={(e) => set("weight", e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-400" />
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Greutate țintă (kg)</label>
           <input type="number" step="0.1" value={form.targetWeight} onChange={(e) => set("targetWeight", e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-400" />
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Nivel activitate</label>
@@ -415,7 +431,7 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
               <input type="number" min="0" max="100000" value={stepsInput}
                 onChange={(e) => setStepsInput(e.target.value)} onBlur={saveSteps}
                 placeholder="ex. 8500"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-400 pr-16" />
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400 pr-16" />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">pași</span>
             </div>
             <button onClick={saveSteps} disabled={savingSteps}
