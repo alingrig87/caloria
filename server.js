@@ -129,10 +129,9 @@ async function dietCallWithRetry(prompt, validate, maxRetries = 3) {
 }
 
 async function dietGenerateWeek1(params) {
-  const { firstName, lastName, height, weight, age, country, preferredFoods, specialOccasions, currentMonth, currentYear, cookTimesPerWeek, includeRecipes } = params;
+  const { firstName, lastName, height, weight, age, country, preferredFoods, specialOccasions, currentMonth, currentYear, cookTimesPerWeek } = params;
   const startWd = getWeekdayForDay(1);
   const cookInstr = dietCookingInstructions(cookTimesPerWeek);
-  const exMeal = includeRecipes ? "Terci ovaz cu miere|380|10" : "Terci ovaz cu miere|380";
 
   const prompt = `Esti nutritionist expert. Analiza pacient si planul zilelor 1-7.
 
@@ -146,21 +145,21 @@ ${cookInstr}
 Calculeaza IMC, greutate ideala (formula Devine), calorii pentru -0.5kg/saptamana.
 
 RASPUNDE DOAR cu JSON compact (fara text in afara):
-{"analysis":{"bmi":27.7,"bmi_category":"Supraponderal","ideal_weight":70,"ideal_weight_range":"65-72 kg","daily_calories":1700,"weekly_loss_kg":0.5,"expected_loss_month":2.0,"expected_weight_end":78.0},"recommendations":["rec1","rec2","rec3","rec4","rec5"],"days":[{"d":1,"w":"${startWd}","cook":1,"b":"${exMeal}","l":"Masa pranz|480${includeRecipes?"|45":""}","n":"Masa cina|320${includeRecipes?"|5":""}","s":"Fructe|180${includeRecipes?"|2":""}","t":1360}]}
+{"analysis":{"bmi":27.7,"bmi_category":"Supraponderal","ideal_weight":70,"ideal_weight_range":"65-72 kg","daily_calories":1700,"weekly_loss_kg":0.5,"expected_loss_month":2.0,"expected_weight_end":78.0},"recommendations":["rec1","rec2","rec3","rec4","rec5"],"days":[{"d":1,"w":"${startWd}","cook":1,"b":"Terci ovaz cu miere|380|10|12|55|8","l":"Piept pui cu salata|480|25|45|20|12","n":"Supa legume|320|15|18|30|6","s":"Fructe|180|2|2|40|1","t":1360}]}
 
-Format: d=nr_zi, w=ziua_sapt, cook=1/0, b=mic_dejun|kcal${includeRecipes?"|min":""}, l=pranz, n=cina, s=gustare, t=total
-Genereaza exact 7 zile (1-7). Mese variate, specifice ${country}, de sezon.`;
+Format mese: NumeMasa|kcal|min|prot_g|carbs_g|fat_g
+Format zi: d=nr_zi, w=ziua_sapt, cook=1/0, b=mic_dejun, l=pranz, n=cina, s=gustare, t=total_kcal
+Genereaza exact 7 zile (1-7). Mese variate, specifice ${country}, de sezon. Include macronutrienti realistici.`;
   return dietCallWithRetry(prompt, (p) => {
     if (!p.analysis || !p.days || p.days.length < 7) throw new Error(`invalid week1: ${p.days?.length} days`);
   });
 }
 
 async function dietGenerateWeekDays(params, startDay, endDay, dailyCalories) {
-  const { country, preferredFoods, specialOccasions, currentMonth, cookTimesPerWeek, includeRecipes } = params;
+  const { country, preferredFoods, specialOccasions, currentMonth, cookTimesPerWeek } = params;
   const startWd = getWeekdayForDay(startDay);
   const count = endDay - startDay + 1;
   const cookInstr = dietCookingInstructions(cookTimesPerWeek);
-  const exMeal = includeRecipes ? "Masa|kcal|min" : "Masa|kcal";
 
   const prompt = `Esti nutritionist expert. Genereaza DOAR zilele ${startDay}-${endDay}.
 
@@ -173,10 +172,11 @@ Ziua ${startDay} incepe cu: ${startWd}
 ${cookInstr}
 
 RASPUNDE DOAR cu array JSON (fara {}, fara text in afara):
-[{"d":${startDay},"w":"${startWd}","cook":1,"b":"${exMeal}","l":"${exMeal}","n":"${exMeal}","s":"${exMeal}","t":1360}]
+[{"d":${startDay},"w":"${startWd}","cook":1,"b":"Masa|kcal|min|prot|carbs|fat","l":"Masa|kcal|min|prot|carbs|fat","n":"Masa|kcal|min|prot|carbs|fat","s":"Masa|kcal|min|prot|carbs|fat","t":1360}]
 
-Format: d=nr_zi, w=ziua_sapt, cook=1/0, b=mic_dejun|kcal${includeRecipes?"|min":""}, l=pranz, n=cina, s=gustare, t=total
-Genereaza exact ${count} zile (${startDay}-${endDay}). Mese variate, specifice ${country}, de sezon.`;
+Format mese: NumeMasa|kcal|min|prot_g|carbs_g|fat_g
+Format zi: d=nr_zi, w=ziua_sapt, cook=1/0, b=mic_dejun, l=pranz, n=cina, s=gustare, t=total_kcal
+Genereaza exact ${count} zile (${startDay}-${endDay}). Mese variate, specifice ${country}, de sezon. Include macronutrienti realistici.`;
   return dietCallWithRetry(prompt, (p) => {
     if (!Array.isArray(p) || p.length < count - 1) throw new Error(`got ${p?.length} days, need ${count}`);
   });
@@ -197,10 +197,10 @@ Retete scurte: max 4 pasi, ingrediente comune, cantitati pentru 1 portie.`;
   });
 }
 
-async function dietGenerateShoppingList(params, allDays) {
+async function dietGenerateShoppingList(params, weekDays, weekNum) {
   const { country, currentMonth } = params;
   const mealCounts = {};
-  allDays.forEach((day) => {
+  weekDays.forEach((day) => {
     ["b", "l", "n", "s"].forEach((key) => {
       if (day[key]) {
         const name = String(day[key]).split("|")[0].trim();
@@ -211,15 +211,15 @@ async function dietGenerateShoppingList(params, allDays) {
   const mealList = Object.entries(mealCounts).sort((a, b) => b[1] - a[1])
     .map(([name, count]) => `${name} (x${count})`).join(", ");
 
-  const prompt = `Genereaza lista de cumparaturi pentru 30 de zile, 1 persoana, bazata pe aceste mese:
+  const prompt = `Genereaza lista de cumparaturi pentru saptamana ${weekNum} (7 zile), 1 persoana, bazata pe aceste mese:
 ${mealList}
 
 Tara: ${country}, luna: ${currentMonth}
 
 RASPUNDE DOAR cu JSON organizat pe categorii (fara text in afara):
-{"Legume si fructe":[{"item":"rosii","qty":"1.5 kg"}],"Carne si peste":[{"item":"piept pui","qty":"1 kg"}],"Lactate si oua":[{"item":"oua","qty":"30 buc"}],"Cereale si leguminoase":[{"item":"orez","qty":"800g"}],"Condimente si altele":[{"item":"ulei masline","qty":"500ml"}]}
+{"Legume si fructe":[{"item":"rosii","qty":"500g"},{"item":"mere","qty":"1 kg"}],"Carne si peste":[{"item":"piept de pui","qty":"400g"}],"Lactate si oua":[{"item":"oua","qty":"7 bucati"}],"Cereale si leguminoase":[{"item":"orez","qty":"200g"}],"Condimente si altele":[{"item":"ulei de masline","qty":"100ml"}]}
 
-Cantitati pentru 30 zile, 1 portie/zi, valori practice (100g, 250g, 500g, 1kg).`;
+Reguli: cantitati pentru 7 zile (1 portie/zi), rotunjeste la valori practice (100g, 250g, 500g, 1kg etc).`;
   return dietCallWithRetry(prompt, (p) => {
     if (typeof p !== "object" || Array.isArray(p) || Object.keys(p).length === 0) throw new Error("invalid shopping list");
   });
@@ -268,9 +268,12 @@ app.post("/api/diet", async (req, res) => {
 
     const allDays = [...week1.days, ...week2Days, ...week3Days, ...week4Days];
 
-    const [recipes, shopping] = await Promise.all([
+    const [recipes, shopping1, shopping2, shopping3, shopping4] = await Promise.all([
       includeRecipes ? dietGenerateRecipes(params, dietExtractMealNames(allDays)) : Promise.resolve({}),
-      dietGenerateShoppingList(params, allDays),
+      dietGenerateShoppingList(params, allDays.slice(0, 7), 1),
+      dietGenerateShoppingList(params, allDays.slice(7, 14), 2),
+      dietGenerateShoppingList(params, allDays.slice(14, 21), 3),
+      dietGenerateShoppingList(params, allDays.slice(21), 4),
     ]);
 
     return res.status(200).json({
@@ -280,10 +283,45 @@ app.post("/api/diet", async (req, res) => {
       includeRecipes,
       days: allDays,
       recipes,
-      shopping,
+      shopping: [shopping1, shopping2, shopping3, shopping4],
     });
   } catch (error) {
     console.error("Eroare generare plan:", error);
+    return res.status(500).json({ error: error.message || "Eroare server" });
+  }
+});
+
+app.post("/api/estimate-text", async (req, res) => {
+  const { description } = req.body;
+  if (!description) return res.status(400).json({ error: "description este necesar" });
+
+  try {
+    const message = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 512,
+      messages: [{
+        role: "user",
+        content: `Esti nutritionist expert. Utilizatorul descrie ce a mancat in cuvinte simple.
+Descriere: "${description}"
+
+Raspunde DOAR cu JSON compact, fara text in afara:
+{"name":"nume scurt descriptiv al mesei","kcal":320,"protein":18,"carbs":12,"fat":14,"items":[{"name":"ou fiert","qty":"2 buc","kcal":155},{"name":"rosie","qty":"2 buc medii (~200g)","kcal":36}]}
+
+Reguli:
+- name: rezumat scurt al mesei (max 5 cuvinte)
+- kcal/protein/carbs/fat: totaluri realiste pentru cantitatile descrise
+- items: fiecare ingredient separat cu cantitate estimata
+- Daca descrierea nu e mancare: {"error":"Nu am recunoscut mancare in descriere"}`
+      }]
+    });
+
+    const raw = message.content[0].text;
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return res.status(500).json({ error: "Raspuns invalid de la AI" });
+    const parsed = JSON.parse(match[0]);
+    return res.json(parsed);
+  } catch (error) {
+    console.error("estimate-text error:", error);
     return res.status(500).json({ error: error.message || "Eroare server" });
   }
 });
