@@ -19,6 +19,87 @@ function Bar({ pct, color = "bg-teal-500" }) {
   );
 }
 
+// ── Weight Progress Chart ──────────────────────────────────
+function WeightChart({ dayData, startWeight, targetWeight }) {
+  if (!dayData || dayData.length === 0) return null;
+
+  // Build estimated weight per logged day
+  let running = startWeight;
+  const points = dayData.map((d, i) => {
+    const loss = d.deficit / 7700;
+    running = running - loss;
+    return { i, weight: parseFloat(running.toFixed(2)), logged: d.logged, date: d.date };
+  });
+
+  const weights = points.map((p) => p.weight);
+  const minW = Math.min(...weights, targetWeight) - 0.3;
+  const maxW = Math.max(...weights, startWeight) + 0.3;
+  const range = maxW - minW || 1;
+
+  const W = 300;
+  const H = 100;
+  const padL = 36;
+  const padR = 8;
+  const padT = 8;
+  const padB = 20;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  const xOf = (i) => padL + (i / Math.max(points.length - 1, 1)) * chartW;
+  const yOf = (w) => padT + ((maxW - w) / range) * chartH;
+
+  const pathD = points.map((p, i) =>
+    `${i === 0 ? "M" : "L"} ${xOf(i).toFixed(1)} ${yOf(p.weight).toFixed(1)}`
+  ).join(" ");
+
+  const targetY = yOf(targetWeight);
+  const startY = yOf(startWeight);
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 220 }}>
+        {/* Target line */}
+        <line x1={padL} y1={targetY} x2={W - padR} y2={targetY}
+          stroke="#10b981" strokeWidth="1" strokeDasharray="4 3" opacity="0.6" />
+        <text x={padL - 2} y={targetY + 4} fontSize="7" fill="#10b981" textAnchor="end">{targetWeight}</text>
+
+        {/* Start line */}
+        <line x1={padL} y1={startY} x2={W - padR} y2={startY}
+          stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 3" opacity="0.4" />
+        <text x={padL - 2} y={startY + 4} fontSize="7" fill="#94a3b8" textAnchor="end">{startWeight}</text>
+
+        {/* Area fill */}
+        <path d={`${pathD} L ${xOf(points.length - 1).toFixed(1)} ${padT + chartH} L ${padL} ${padT + chartH} Z`}
+          fill="url(#wGrad)" opacity="0.15" />
+
+        {/* Gradient */}
+        <defs>
+          <linearGradient id="wGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#14b8a6" />
+            <stop offset="100%" stopColor="#14b8a6" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* Line */}
+        <path d={pathD} fill="none" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+
+        {/* Points */}
+        {points.map((p) => (
+          <circle key={p.i} cx={xOf(p.i)} cy={yOf(p.weight)} r="3"
+            fill={p.logged ? "#14b8a6" : "#cbd5e1"} stroke="white" strokeWidth="1.5" />
+        ))}
+
+        {/* X axis day labels */}
+        {points.filter((_, i) => i % 2 === 0).map((p) => (
+          <text key={p.i} x={xOf(p.i)} y={H - 4} fontSize="7" fill="#94a3b8" textAnchor="middle">
+            {p.i + 1}
+          </text>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 
 function weightScaleColor(estWeight, startWeight, targetWeight) {
   const progress = startWeight - estWeight;
@@ -192,12 +273,13 @@ function EditProfileModal({ profile, onClose }) {
 export default function ProfileTab({ profile, onProfileUpdate }) {
   const [objectives, setObjectives] = useState([]);
   const [objLoading, setObjLoading] = useState(true);
-  const [dailyLog, setDailyLog] = useState({ steps: 0 });
+  const [dailyLog, setDailyLog] = useState({ steps: 0, water: 0 });
   const [stepsInput, setStepsInput] = useState("");
   const [todayKcal, setTodayKcal] = useState(0);
   const [showAddObjective, setShowAddObjective] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [savingSteps, setSavingSteps] = useState(false);
+  const [savingWater, setSavingWater] = useState(false);
 
   const today = formatDateStr();
   const uid = auth.currentUser?.uid;
@@ -266,6 +348,15 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
     await setDoc(doc(db, "users", uid, "dailyLogs", today), { steps: Number(stepsInput), updatedAt: Timestamp.now() }, { merge: true });
     setDailyLog((d) => ({ ...d, steps: Number(stepsInput) }));
     setSavingSteps(false);
+  };
+
+  const water = dailyLog.water || 0;
+  const addWater = async (delta) => {
+    const next = Math.max(0, water + delta);
+    setSavingWater(true);
+    await setDoc(doc(db, "users", uid, "dailyLogs", today), { water: next, updatedAt: Timestamp.now() }, { merge: true });
+    setDailyLog((d) => ({ ...d, water: next }));
+    setSavingWater(false);
   };
 
   if (objLoading) {
@@ -412,6 +503,21 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
             <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-teal-600 inline-block"/>azi</span>
             <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-gray-100 inline-block"/>urmează</span>
           </div>
+
+          {dayData.length > 1 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-2">Progres greutate estimată</p>
+              <WeightChart
+                dayData={dayData}
+                startWeight={activeObjective.startWeight}
+                targetWeight={activeObjective.targetWeight}
+              />
+              <div className="flex gap-4 text-xs text-gray-400 mt-1">
+                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-teal-500 inline-block rounded"/>estimat</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-400 inline-block rounded" style={{borderTop: '1px dashed'}}/>țintă</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -441,6 +547,29 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
               {steps.toLocaleString()} pași → +{stepsKcal} kcal arse suplimentar
             </p>
           )}
+        </div>
+
+        {/* Water tracker */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Apă consumată azi</label>
+          <div className="flex items-center gap-3">
+            <button onClick={() => addWater(-250)} disabled={savingWater || water === 0}
+              className="w-9 h-9 rounded-xl border border-gray-200 text-lg font-bold text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors">−</button>
+            <div className="flex-1">
+              <div className="flex gap-1 mb-1.5">
+                {Array.from({ length: 8 }, (_, i) => (
+                  <div key={i} className={`flex-1 h-5 rounded-md transition-colors ${
+                    i < Math.floor(water / 250) ? "bg-blue-400" : "bg-gray-100"
+                  }`} />
+                ))}
+              </div>
+              <p className="text-xs text-center text-gray-500">
+                <span className="font-bold text-blue-500">{(water / 1000).toFixed(2)}L</span> din 2L recomandat
+              </p>
+            </div>
+            <button onClick={() => addWater(250)} disabled={savingWater}
+              className="w-9 h-9 rounded-xl border border-teal-200 text-lg font-bold text-teal-600 hover:bg-teal-50 disabled:opacity-30 transition-colors">+</button>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-3">

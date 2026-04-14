@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { auth, db } from "../firebase";
+import { calcBMR, calcTDEE } from "../utils/calculations";
 import {
   collection, addDoc, query, where,
-  onSnapshot, deleteDoc, doc, updateDoc, Timestamp,
+  onSnapshot, deleteDoc, doc, updateDoc, setDoc, getDoc, Timestamp,
 } from "firebase/firestore";
 
 const MEAL_TYPES = ["Mic dejun", "Prânz", "Gustare", "Cină", "Altele"];
@@ -49,7 +50,7 @@ function DateNav({ selected, onChange }) {
 }
 
 // ── Add Meal Modal ─────────────────────────────────────────
-function AddMealModal({ onClose, onSaved }) {
+function AddMealModal({ onClose, onSaved, favorites }) {
   const [mode, setMode] = useState("text");
   const [mealType, setMealType] = useState("Prânz");
   const [description, setDescription] = useState("");
@@ -172,7 +173,28 @@ function AddMealModal({ onClose, onSaved }) {
               className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${mode === "photo" ? "bg-teal-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
               📷 Poză
             </button>
+            {favorites?.length > 0 && (
+              <button onClick={() => { setMode("favorites"); setResult(null); }}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${mode === "favorites" ? "bg-yellow-400 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+                ★ Favorite
+              </button>
+            )}
           </div>
+
+          {mode === "favorites" && favorites?.length > 0 && (
+            <div className="space-y-2">
+              {favorites.map((fav) => (
+                <button key={fav.id} onClick={() => { setResult({ name: fav.name, kcal: fav.kcal, protein: fav.protein, carbs: fav.carbs, fat: fav.fat, items: [] }); setMode("text"); }}
+                  className="w-full flex items-center justify-between bg-yellow-50 border border-yellow-200 hover:border-yellow-400 rounded-xl px-4 py-3 transition-colors text-left">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">{fav.name}</p>
+                    <p className="text-xs text-gray-500">{fav.mealType}</p>
+                  </div>
+                  <span className="text-sm font-bold text-teal-700 shrink-0">{fav.kcal} kcal</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="flex gap-1.5 flex-wrap">
             {MEAL_TYPES.map((t) => (
@@ -442,8 +464,41 @@ function EditMealModal({ meal, onClose }) {
   );
 }
 
+// ── Favorites ─────────────────────────────────────────────
+function useFavorites() {
+  const [favorites, setFavorites] = useState([]);
+  const uid = auth.currentUser?.uid;
+  useEffect(() => {
+    if (!uid) return;
+    return onSnapshot(collection(db, "users", uid, "favoriteMeals"), (snap) =>
+      setFavorites(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
+  }, [uid]);
+  return favorites;
+}
+
+async function toggleFavorite(meal) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return;
+  const favRef = doc(db, "users", uid, "favoriteMeals", meal.id);
+  const snap = await getDoc(favRef);
+  if (snap.exists()) {
+    await deleteDoc(favRef);
+  } else {
+    await setDoc(favRef, {
+      name: meal.name,
+      kcal: meal.kcal || null,
+      protein: meal.protein || null,
+      carbs: meal.carbs || null,
+      fat: meal.fat || null,
+      mealType: meal.mealType || "Altele",
+      savedAt: Timestamp.now(),
+    });
+  }
+}
+
 // ── Meal Card ──────────────────────────────────────────────
-function MealCard({ meal, onDelete, onEdit }) {
+function MealCard({ meal, onDelete, onEdit, isFavorite, onToggleFavorite }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="bg-white border border-gray-100 rounded-xl px-4 py-3 group">
@@ -480,6 +535,11 @@ function MealCard({ meal, onDelete, onEdit }) {
           )}
         </div>
         <div className="opacity-0 group-hover:opacity-100 flex items-center gap-2 shrink-0 pt-0.5 transition-opacity">
+          <button onClick={() => onToggleFavorite(meal)}
+            className={`transition-colors text-base leading-none px-1 ${isFavorite ? "text-yellow-400" : "text-gray-300 hover:text-yellow-400"}`}
+            title={isFavorite ? "Elimină din favorite" : "Adaugă la favorite"}>
+            ★
+          </button>
           <button onClick={() => onEdit(meal)}
             className="text-gray-400 hover:text-teal-500 transition-colors text-sm leading-none px-1">
             ✏️
@@ -524,6 +584,7 @@ export default function Journal({ profile, onGoToJournal }) {
   const [showMealModal, setShowMealModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [editingMeal, setEditingMeal] = useState(null);
+  const favorites = useFavorites();
 
   useEffect(() => {
     const uid = auth.currentUser?.uid;
@@ -612,6 +673,38 @@ export default function Journal({ profile, onGoToJournal }) {
         </div>
       </div>
 
+      {/* Macro targets */}
+      {profile && totalKcal > 0 && (() => {
+        const bmr = calcBMR(profile.sex, profile.age, profile.height, profile.weight);
+        const tdee = calcTDEE(bmr, profile.activityLevel);
+        const kcalTarget = Math.max(1200, tdee - 500);
+        const proteinTarget = Math.round(profile.weight * 1.8); // 1.8g/kg
+        const carbsTarget = Math.round((kcalTarget * 0.45) / 4);
+        const fatTarget = Math.round((kcalTarget * 0.30) / 9);
+        const macros = [
+          { label: "Calorii", val: totalKcal, target: kcalTarget, unit: "kcal", color: "bg-teal-500" },
+          { label: "Proteină", val: totalProtein, target: proteinTarget, unit: "g", color: "bg-blue-500" },
+          { label: "Carbo", val: totalCarbs, target: carbsTarget, unit: "g", color: "bg-amber-400" },
+          { label: "Grăsimi", val: totalFat, target: fatTarget, unit: "g", color: "bg-orange-400" },
+        ];
+        return (
+          <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-2.5">
+            {macros.map((m) => (
+              <div key={m.label}>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="font-medium text-gray-600">{m.label}</span>
+                  <span className="text-gray-500">{m.val} <span className="text-gray-400">/ {m.target}{m.unit}</span></span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                  <div className={`h-2 rounded-full transition-all duration-500 ${m.color} ${m.val > m.target ? "opacity-60" : ""}`}
+                    style={{ width: `${Math.min(100, (m.val / m.target) * 100)}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Meals */}
       {loading ? (
         <div className="text-center py-10 text-gray-400 text-sm">Se încarcă...</div>
@@ -627,7 +720,7 @@ export default function Journal({ profile, onGoToJournal }) {
             <div key={type}>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{type}</p>
               <div className="space-y-2">
-                {items.map((m) => <MealCard key={m.id} meal={m} onDelete={handleDelete} onEdit={setEditingMeal} />)}
+                {items.map((m) => <MealCard key={m.id} meal={m} onDelete={handleDelete} onEdit={setEditingMeal} isFavorite={favorites.some((f) => f.id === m.id)} onToggleFavorite={toggleFavorite} />)}
               </div>
             </div>
           ))}
@@ -646,6 +739,7 @@ export default function Journal({ profile, onGoToJournal }) {
         <AddMealModal
           onClose={() => setShowMealModal(false)}
           onSaved={() => { setShowMealModal(false); if (onGoToJournal) onGoToJournal(); }}
+          favorites={favorites}
         />
       )}
       {editingMeal && <EditMealModal meal={editingMeal} onClose={() => setEditingMeal(null)} />}
