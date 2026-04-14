@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { doc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, setDoc, addDoc, collection, Timestamp } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import {
   calcBMR, calcTDEE, predictLossKg, ACTIVITY_LEVELS, formatDateStr,
@@ -33,7 +33,6 @@ export default function ProfileSetup({ onDone }) {
   const canNext0 = form.sex && form.age && form.height && form.weight;
   const canNext1 = form.targetWeight && form.activityLevel;
 
-  // Calculations for summary
   const bmr = canNext0
     ? calcBMR(form.sex, Number(form.age), Number(form.height), Number(form.weight))
     : 0;
@@ -52,18 +51,28 @@ export default function ProfileSetup({ onDone }) {
     setSaving(true);
     const uid = auth.currentUser.uid;
     const today = formatDateStr();
+    const endDate = formatDateStr(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000));
+
+    // Profile: only personal data (no targetWeight, no cycle fields)
     await setDoc(doc(db, "users", uid, "profile", "data"), {
       sex: form.sex,
       age: Number(form.age),
       height: Number(form.height),
       weight: Number(form.weight),
-      targetWeight: Number(form.targetWeight),
       activityLevel: form.activityLevel,
-      cycleStartDate: today,
-      cycleStartWeight: Number(form.weight),
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
+
+    // First objective: separate document, 14-day period
+    await addDoc(collection(db, "users", uid, "objectives"), {
+      startDate: today,
+      endDate,
+      startWeight: Number(form.weight),
+      targetWeight: Number(form.targetWeight),
+      createdAt: Timestamp.now(),
+    });
+
     onDone();
   };
 
@@ -73,16 +82,12 @@ export default function ProfileSetup({ onDone }) {
         {/* Progress */}
         <div className="flex">
           {STEP_LABELS.map((l, i) => (
-            <div
-              key={i}
+            <div key={i}
               className={`flex-1 py-2.5 text-xs font-semibold text-center transition-colors ${
-                i === step
-                  ? "bg-teal-600 text-white"
-                  : i < step
-                  ? "bg-teal-100 text-teal-700"
-                  : "bg-gray-50 text-gray-400"
-              }`}
-            >
+                i === step ? "bg-teal-600 text-white"
+                : i < step  ? "bg-teal-100 text-teal-700"
+                : "bg-gray-50 text-gray-400"
+              }`}>
               {i < step ? "✓ " : `${i + 1}. `}{l}
             </div>
           ))}
@@ -100,15 +105,12 @@ export default function ProfileSetup({ onDone }) {
               <Field label="Sex">
                 <div className="flex gap-3">
                   {["F", "M"].map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => set("sex", s)}
+                    <button key={s} onClick={() => set("sex", s)}
                       className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-colors ${
                         form.sex === s
                           ? "border-teal-500 bg-teal-50 text-teal-800"
                           : "border-gray-200 text-gray-500 hover:border-gray-300"
-                      }`}
-                    >
+                      }`}>
                       {s === "F" ? "👩 Femeie" : "👨 Bărbat"}
                     </button>
                   ))}
@@ -116,38 +118,29 @@ export default function ProfileSetup({ onDone }) {
               </Field>
 
               <Field label="Vârstă (ani)">
-                <input
-                  type="number" min="10" max="100"
+                <input type="number" min="10" max="100"
                   value={form.age} onChange={(e) => set("age", e.target.value)}
                   placeholder="ex. 30"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-400"
-                />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
               </Field>
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Înălțime (cm)">
-                  <input
-                    type="number" min="100" max="250"
+                  <input type="number" min="100" max="250"
                     value={form.height} onChange={(e) => set("height", e.target.value)}
                     placeholder="ex. 165"
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-400"
-                  />
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
                 </Field>
                 <Field label="Greutate curentă (kg)">
-                  <input
-                    type="number" min="30" max="300" step="0.1"
+                  <input type="number" min="30" max="300" step="0.1"
                     value={form.weight} onChange={(e) => set("weight", e.target.value)}
                     placeholder="ex. 75"
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-400"
-                  />
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
                 </Field>
               </div>
 
-              <button
-                disabled={!canNext0}
-                onClick={() => setStep(1)}
-                className="w-full bg-teal-600 hover:bg-teal-500 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 rounded-xl transition-colors"
-              >
+              <button disabled={!canNext0} onClick={() => setStep(1)}
+                className="w-full bg-teal-600 hover:bg-teal-500 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 rounded-xl transition-colors">
                 Continuă →
               </button>
             </>
@@ -157,17 +150,15 @@ export default function ProfileSetup({ onDone }) {
           {step === 1 && (
             <>
               <div>
-                <h2 className="text-xl font-bold text-gray-800">Obiectivul tău</h2>
-                <p className="text-sm text-gray-500 mt-1">Unde vrei să ajungi?</p>
+                <h2 className="text-xl font-bold text-gray-800">Primul tău obiectiv</h2>
+                <p className="text-sm text-gray-500 mt-1">Setează un obiectiv de 14 zile. Poți schimba oricând.</p>
               </div>
 
               <Field label="Greutatea dorită (kg)">
-                <input
-                  type="number" min="30" max="300" step="0.1"
+                <input type="number" min="30" max="300" step="0.1"
                   value={form.targetWeight} onChange={(e) => set("targetWeight", e.target.value)}
                   placeholder="ex. 65"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-400"
-                />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
                 {form.targetWeight && form.weight && (
                   <p className="text-xs text-teal-600 mt-1.5 font-medium">
                     Ai de {weightDiff > 0 ? "slăbit" : "luat în greutate"} {Math.abs(weightDiff).toFixed(1)} kg
@@ -178,15 +169,12 @@ export default function ProfileSetup({ onDone }) {
               <Field label="Nivel activitate fizică (fără pași)">
                 <div className="space-y-2">
                   {ACTIVITY_LEVELS.map((l) => (
-                    <button
-                      key={l.value}
-                      onClick={() => set("activityLevel", l.value)}
+                    <button key={l.value} onClick={() => set("activityLevel", l.value)}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left transition-colors ${
                         form.activityLevel === l.value
                           ? "border-teal-500 bg-teal-50"
                           : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
+                      }`}>
                       <div>
                         <p className="text-sm font-semibold text-gray-800">{l.label}</p>
                         <p className="text-xs text-gray-500">{l.desc}</p>
@@ -200,11 +188,8 @@ export default function ProfileSetup({ onDone }) {
                 <button onClick={() => setStep(0)} className="px-5 py-3 border border-gray-200 rounded-xl text-sm text-gray-500 hover:bg-gray-50">
                   ← Înapoi
                 </button>
-                <button
-                  disabled={!canNext1}
-                  onClick={() => setStep(2)}
-                  className="flex-1 bg-teal-600 hover:bg-teal-500 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 rounded-xl transition-colors"
-                >
+                <button disabled={!canNext1} onClick={() => setStep(2)}
+                  className="flex-1 bg-teal-600 hover:bg-teal-500 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 rounded-xl transition-colors">
                   Vezi sumar →
                 </button>
               </div>
@@ -240,13 +225,9 @@ export default function ProfileSetup({ onDone }) {
                 </div>
 
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                  <p className="text-xs font-semibold text-emerald-600 mb-2">Predicție — primele 2 săptămâni</p>
-                  <p className="text-3xl font-bold text-emerald-800">
-                    -{pred14.toFixed(1)} kg
-                  </p>
-                  <p className="text-xs text-emerald-600 mt-1">
-                    Dacă mănânci ~{budget} kcal/zi și urmezi planul Vitalis
-                  </p>
+                  <p className="text-xs font-semibold text-emerald-600 mb-2">Predicție — 14 zile</p>
+                  <p className="text-3xl font-bold text-emerald-800">-{pred14.toFixed(1)} kg</p>
+                  <p className="text-xs text-emerald-600 mt-1">Dacă mănânci ~{budget} kcal/zi și urmezi planul Vitalis</p>
                   {weeksNeeded && (
                     <p className="text-xs text-emerald-700 mt-2 font-medium">
                       La acest ritm, ajungi la obiectiv în ~{weeksNeeded} săptămâni
@@ -255,7 +236,7 @@ export default function ProfileSetup({ onDone }) {
                 </div>
 
                 <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-700">
-                  Pașii zilnici vor fi luați în calcul suplimentar — cu cât mergi mai mult, cu atât arzi mai mult.
+                  Obiectivul durează 14 zile. La final poți seta unul nou cu o nouă greutate țintă.
                 </div>
               </div>
 
@@ -263,11 +244,8 @@ export default function ProfileSetup({ onDone }) {
                 <button onClick={() => setStep(1)} className="px-5 py-3 border border-gray-200 rounded-xl text-sm text-gray-500 hover:bg-gray-50">
                   ← Înapoi
                 </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex-1 bg-teal-600 hover:bg-teal-500 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl transition-colors"
-                >
+                <button onClick={handleSave} disabled={saving}
+                  className="flex-1 bg-teal-600 hover:bg-teal-500 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl transition-colors">
                   {saving ? "Se salvează..." : "🚀 Începe tracking-ul"}
                 </button>
               </div>

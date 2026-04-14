@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   doc, getDoc, setDoc, updateDoc, addDoc,
-  collection, query, where, orderBy, getDocs, onSnapshot, Timestamp, limit,
+  collection, query, orderBy, getDocs, onSnapshot, Timestamp, where,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import {
@@ -9,7 +9,6 @@ import {
   deficitToGrams, predictLossKg, daysSince, formatDateStr, ACTIVITY_LEVELS,
 } from "../utils/calculations";
 
-// ─── helpers ──────────────────────────────────────────────
 function Bar({ pct, color = "bg-teal-500" }) {
   return (
     <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
@@ -19,28 +18,31 @@ function Bar({ pct, color = "bg-teal-500" }) {
   );
 }
 
-/** Calculează greutatea estimată din istoricul caloric real */
-function useEstimatedWeight(profile, bmr) {
+// ── Estimated weight hook ──────────────────────────────────
+function useEstimatedWeight(profile, bmr, activeObjective) {
   const [estWeight, setEstWeight] = useState(null);
-  const [dayData, setDayData] = useState([]); // [{date, eaten, burned, deficit}]
+  const [dayData, setDayData] = useState([]);
   const [loading, setLoading] = useState(true);
   const uid = auth.currentUser?.uid;
 
   useEffect(() => {
-    if (!uid || !profile?.cycleStartDate) return;
+    if (!uid || !activeObjective) {
+      setEstWeight(null);
+      setDayData([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
-    const daysElapsed = daysSince(profile.cycleStartDate);
+    const daysElapsed = daysSince(activeObjective.startDate);
     const numDays = Math.max(1, Math.min(daysElapsed + 1, 14));
 
-    // Build list of dates from cycle start to today
     const dates = Array.from({ length: numDays }, (_, i) => {
-      const d = new Date(profile.cycleStartDate);
+      const d = new Date(activeObjective.startDate);
       d.setDate(d.getDate() + i);
       return formatDateStr(d);
     });
 
-    // Fetch activities for the date range
     const activitiesPromise = getDocs(query(
       collection(db, "users", uid, "activities"),
       where("date", ">=", dates[0]),
@@ -52,16 +54,14 @@ function useEstimatedWeight(profile, bmr) {
         map[a.date] = (map[a.date] || 0) + (a.caloriesBurned || 0);
       });
       return map;
-    }).catch(() => ({})); // silently ignore index errors
+    }).catch(() => ({}));
 
     Promise.all([
       activitiesPromise,
-      // meals per day
       ...dates.map((date) =>
         getDocs(query(collection(db, "users", uid, "meals"), where("date", "==", date)))
           .then((snap) => ({ date, eaten: snap.docs.reduce((s, d) => s + (d.data().kcal || 0), 0) }))
       ),
-      // daily logs (steps) per day
       ...dates.map((date) =>
         getDoc(doc(db, "users", uid, "dailyLogs", date))
           .then((snap) => ({ date, steps: snap.exists() ? (snap.data().steps || 0) : 0 }))
@@ -74,13 +74,12 @@ function useEstimatedWeight(profile, bmr) {
         if ("steps" in r) stepsMap[r.date] = r.steps;
       });
 
+      const budget = Math.max(1200, calcTDEE(bmr, profile.activityLevel) - 500);
       const days = dates.map((date) => {
         const eaten = mealMap[date] || 0;
         const stepsKcal = calcStepsCalories(stepsMap[date] || 0, profile.weight);
         const activityKcal = activityMap[date] || 0;
         const burned = bmr + stepsKcal + activityKcal;
-        // Dacă nu s-a logat nimic, presupunem că s-a mâncat la budget (conservator)
-        const budget = Math.max(1200, calcTDEE(bmr, profile.activityLevel) - 500);
         const effectiveEaten = eaten > 0 ? eaten : budget;
         const deficit = burned - effectiveEaten;
         return { date, eaten, burned, deficit, logged: eaten > 0 };
@@ -89,15 +88,15 @@ function useEstimatedWeight(profile, bmr) {
       const totalDeficit = days.reduce((s, d) => s + d.deficit, 0);
       const lostKg = totalDeficit / 7700;
       const estimated = Math.max(
-        profile.targetWeight,
-        parseFloat((profile.cycleStartWeight - lostKg).toFixed(2))
+        activeObjective.targetWeight,
+        parseFloat((activeObjective.startWeight - lostKg).toFixed(2))
       );
 
       setDayData(days);
       setEstWeight(estimated);
       setLoading(false);
     });
-  }, [uid, profile, bmr]);
+  }, [uid, profile, bmr, activeObjective]);
 
   return { estWeight, dayData, loading };
 }
@@ -112,9 +111,8 @@ function weightScaleColor(estWeight, startWeight, targetWeight) {
 }
 
 function nextWeighInDays(dayData) {
-  // Recomandare: cantareste la fiecare 5 zile
   const loggedDays = dayData.filter((d) => d.logged).length;
-  if (loggedDays < 3) return { days: null, msg: "Loghează cel puțin 3 zile pentru o recomandare precisă" };
+  if (loggedDays < 3) return { days: null, msg: "Loghează cel puțin 3 zile pentru o recomandare" };
   const lastIdx = dayData.reduce((best, d, i) => d.logged ? i : best, -1);
   const daysSinceLast = dayData.length - 1 - lastIdx;
   const daysUntil = Math.max(0, 5 - daysSinceLast);
@@ -122,74 +120,91 @@ function nextWeighInDays(dayData) {
   return { days: daysUntil, msg: `Cântărește-te în ${daysUntil} ${daysUntil === 1 ? "zi" : "zile"}` };
 }
 
-// ─── Check-in modal ───────────────────────────────────────
-function CheckInModal({ profile, bmr, tdee, onClose, onDone }) {
-  const [weight, setWeight] = useState("");
-  const [note, setNote] = useState("");
+// ── Add Objective Modal ────────────────────────────────────
+function AddObjectiveModal({ profile, onClose }) {
+  const [currentWeight, setCurrentWeight] = useState(String(profile.weight));
+  const [targetWeight, setTargetWeight] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const actualLoss = weight ? (profile.cycleStartWeight - Number(weight)).toFixed(1) : null;
-  const dailyDeficit = Math.max(0, tdee - Math.max(1200, tdee - 500));
-  const theoreticalLoss = predictLossKg(dailyDeficit, 14).toFixed(1);
+  const cw = Number(currentWeight);
+  const tw = Number(targetWeight);
+  const weightDiff = cw && tw ? (cw - tw) : 0;
+
+  const bmr = cw ? calcBMR(profile.sex, profile.age, profile.height, cw) : 0;
+  const tdee = bmr ? calcTDEE(bmr, profile.activityLevel) : 0;
+  const budget = tdee ? Math.max(1200, tdee - 500) : 0;
+  const pred14 = budget ? predictLossKg(tdee - budget, 14) : 0;
 
   const handleSave = async () => {
-    if (!weight) return;
+    if (!targetWeight || !currentWeight) return;
     setSaving(true);
     const uid = auth.currentUser.uid;
     const today = formatDateStr();
-    await addDoc(collection(db, "users", uid, "checkIns"), {
-      date: today,
-      cycleStartDate: profile.cycleStartDate,
-      cycleStartWeight: profile.cycleStartWeight,
-      currentWeight: Number(weight),
-      theoreticalLoss: Number(theoreticalLoss),
-      actualLoss: Number(actualLoss),
-      notes: note.trim() || null,
+    const end = new Date();
+    end.setDate(end.getDate() + 14);
+    const endDate = formatDateStr(end);
+
+    await addDoc(collection(db, "users", uid, "objectives"), {
+      startDate: today,
+      endDate,
+      startWeight: cw,
+      targetWeight: tw,
       createdAt: Timestamp.now(),
     });
-    await updateDoc(doc(db, "users", uid, "profile", "data"), {
-      weight: Number(weight),
-      cycleStartDate: today,
-      cycleStartWeight: Number(weight),
-      updatedAt: Timestamp.now(),
-    });
-    onDone();
+
+    // Update profile weight if it changed
+    if (cw !== profile.weight) {
+      await updateDoc(doc(db, "users", uid, "profile", "data"), {
+        weight: cw,
+        updatedAt: Timestamp.now(),
+      });
+    }
+
     onClose();
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-5">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-4">
         <div>
-          <h3 className="text-lg font-bold text-gray-800">Check-in — 14 zile</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            Start: <strong>{profile.cycleStartWeight} kg</strong> pe{" "}
-            {new Date(profile.cycleStartDate).toLocaleDateString("ro-RO", { day: "numeric", month: "long" })}
-          </p>
+          <h3 className="text-lg font-bold text-gray-800">🎯 Obiectiv nou — 14 zile</h3>
+          <p className="text-xs text-gray-400 mt-1">Va dura 14 zile de la data de azi</p>
         </div>
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-          <p className="text-xs text-emerald-600 font-semibold mb-1">Predicție teoretică</p>
-          <p className="text-2xl font-bold text-emerald-800">-{theoreticalLoss} kg</p>
-        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Greutatea actuală (kg)</label>
-          <input type="number" step="0.1" min="30" max="300" value={weight}
-            onChange={(e) => setWeight(e.target.value)} placeholder="ex. 73.5"
+          <input type="number" step="0.1" min="30" max="300"
+            value={currentWeight} onChange={(e) => setCurrentWeight(e.target.value)}
             className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
-          {actualLoss !== null && (
-            <p className={`text-sm font-bold mt-1.5 ${Number(actualLoss) >= 0 ? "text-teal-700" : "text-red-500"}`}>
-              {Number(actualLoss) >= 0 ? `Ai slăbit ${actualLoss} kg` : `Ai luat ${Math.abs(Number(actualLoss))} kg`}
-              {" "}{Number(actualLoss) >= Number(theoreticalLoss) ? "🎉" : Number(actualLoss) >= 0 ? "— continuă!" : "— revizuiește"}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Greutatea țintă (kg)</label>
+          <input type="number" step="0.1" min="30" max="300"
+            value={targetWeight} onChange={(e) => setTargetWeight(e.target.value)}
+            placeholder="ex. 73"
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
+          {weightDiff > 0 && (
+            <p className="text-xs text-teal-600 mt-1.5 font-medium">
+              Ai de slăbit {weightDiff.toFixed(1)} kg în 14 zile
             </p>
           )}
         </div>
-        <textarea placeholder="Note opționale..." value={note} onChange={(e) => setNote(e.target.value)}
-          rows={2} className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400 resize-none" />
+
+        {budget > 0 && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 space-y-1">
+            <p className="text-xs font-semibold text-emerald-700">La {budget} kcal/zi poți slăbi teoretic:</p>
+            <p className="text-xl font-bold text-emerald-800">~{pred14.toFixed(1)} kg în 14 zile</p>
+          </div>
+        )}
+
         <div className="flex gap-3">
-          <button onClick={onClose} className="px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-500 hover:bg-gray-50">Anulează</button>
-          <button onClick={handleSave} disabled={!weight || saving}
-            className="flex-1 bg-teal-600 hover:bg-teal-500 disabled:bg-gray-200 text-white font-semibold py-3 rounded-xl transition-colors">
-            {saving ? "Se salvează..." : "Salvează & reset ciclu"}
+          <button onClick={onClose} className="px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+            Anulează
+          </button>
+          <button onClick={handleSave} disabled={!targetWeight || !currentWeight || saving}
+            className="flex-1 bg-teal-600 hover:bg-teal-500 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 rounded-xl transition-colors">
+            {saving ? "Se salvează..." : "🎯 Setează obiectiv"}
           </button>
         </div>
       </div>
@@ -197,11 +212,10 @@ function CheckInModal({ profile, bmr, tdee, onClose, onDone }) {
   );
 }
 
-// ─── Edit profile modal ───────────────────────────────────
-function EditProfileModal({ profile, onClose, onDone }) {
+// ── Edit Profile Modal ─────────────────────────────────────
+function EditProfileModal({ profile, onClose }) {
   const [form, setForm] = useState({
     weight: String(profile.weight),
-    targetWeight: String(profile.targetWeight),
     activityLevel: profile.activityLevel,
   });
   const [saving, setSaving] = useState(false);
@@ -212,11 +226,9 @@ function EditProfileModal({ profile, onClose, onDone }) {
     const uid = auth.currentUser.uid;
     await updateDoc(doc(db, "users", uid, "profile", "data"), {
       weight: Number(form.weight),
-      targetWeight: Number(form.targetWeight),
       activityLevel: form.activityLevel,
       updatedAt: Timestamp.now(),
     });
-    onDone();
     onClose();
   };
 
@@ -227,11 +239,6 @@ function EditProfileModal({ profile, onClose, onDone }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Greutate curentă (kg)</label>
           <input type="number" step="0.1" value={form.weight} onChange={(e) => set("weight", e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Greutate țintă (kg)</label>
-          <input type="number" step="0.1" value={form.targetWeight} onChange={(e) => set("targetWeight", e.target.value)}
             className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
         </div>
         <div>
@@ -252,7 +259,7 @@ function EditProfileModal({ profile, onClose, onDone }) {
         </div>
         <div className="flex gap-3">
           <button onClick={onClose} className="px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-500 hover:bg-gray-50">Anulează</button>
-          <button onClick={handleSave} disabled={saving || !form.weight || !form.targetWeight}
+          <button onClick={handleSave} disabled={saving || !form.weight}
             className="flex-1 bg-teal-600 hover:bg-teal-500 disabled:bg-gray-200 text-white font-semibold py-3 rounded-xl transition-colors">
             {saving ? "Se salvează..." : "Salvează"}
           </button>
@@ -262,13 +269,14 @@ function EditProfileModal({ profile, onClose, onDone }) {
   );
 }
 
-// ─── Main ─────────────────────────────────────────────────
+// ── Main ───────────────────────────────────────────────────
 export default function ProfileTab({ profile, onProfileUpdate }) {
+  const [objectives, setObjectives] = useState([]);
+  const [objLoading, setObjLoading] = useState(true);
   const [dailyLog, setDailyLog] = useState({ steps: 0 });
   const [stepsInput, setStepsInput] = useState("");
   const [todayKcal, setTodayKcal] = useState(0);
-  const [checkIns, setCheckIns] = useState([]);
-  const [showCheckIn, setShowCheckIn] = useState(false);
+  const [showAddObjective, setShowAddObjective] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [savingSteps, setSavingSteps] = useState(false);
 
@@ -279,7 +287,21 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
   const tdee = calcTDEE(bmr, profile.activityLevel);
   const budget = Math.max(1200, tdee - 500);
 
-  const { estWeight, dayData, loading: estLoading } = useEstimatedWeight(profile, bmr);
+  // Load objectives (real-time)
+  useEffect(() => {
+    if (!uid) return;
+    const q = query(collection(db, "users", uid, "objectives"), orderBy("createdAt", "desc"));
+    return onSnapshot(q, (snap) => {
+      setObjectives(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setObjLoading(false);
+    });
+  }, [uid]);
+
+  const activeObjective = objectives.find((o) => o.endDate >= today);
+  const expiredObjectives = objectives.filter((o) => o.endDate < today);
+  const justExpired = !activeObjective && expiredObjectives.length > 0 && daysSince(expiredObjectives[0].endDate) <= 3;
+
+  const { estWeight, dayData, loading: estLoading } = useEstimatedWeight(profile, bmr, activeObjective);
 
   const steps = dailyLog.steps || 0;
   const stepsKcal = calcStepsCalories(steps, profile.weight);
@@ -287,20 +309,19 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
   const netDeficit = totalBurned - todayKcal;
   const todayGrams = deficitToGrams(netDeficit);
 
-  const daysElapsed = daysSince(profile.cycleStartDate);
+  const daysElapsed = activeObjective ? daysSince(activeObjective.startDate) : 0;
   const cycleDay = Math.min(daysElapsed + 1, 14);
-  const isCheckInDue = daysElapsed >= 14;
 
-  const weighIn = nextWeighInDays(dayData);
-  const gradClass = estWeight
-    ? weightScaleColor(estWeight, profile.cycleStartWeight, profile.targetWeight)
-    : "from-teal-500 to-teal-700";
-
-  const lostSoFar = estWeight ? (profile.cycleStartWeight - estWeight) : 0;
-  const progressPct = profile.cycleStartWeight > profile.targetWeight
-    ? Math.min(100, (lostSoFar / (profile.cycleStartWeight - profile.targetWeight)) * 100)
+  const lostSoFar = estWeight && activeObjective ? (activeObjective.startWeight - estWeight) : 0;
+  const progressPct = activeObjective && activeObjective.startWeight > activeObjective.targetWeight
+    ? Math.min(100, (lostSoFar / (activeObjective.startWeight - activeObjective.targetWeight)) * 100)
     : 0;
 
+  const gradClass = estWeight && activeObjective
+    ? weightScaleColor(estWeight, activeObjective.startWeight, activeObjective.targetWeight)
+    : "from-teal-500 to-teal-700";
+
+  const weighIn = nextWeighInDays(dayData);
   const loggedDays = dayData.filter((d) => d.logged).length;
 
   // Load daily log
@@ -320,13 +341,6 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
     });
   }, [uid, today]);
 
-  // Check-ins
-  useEffect(() => {
-    if (!uid) return;
-    getDocs(query(collection(db, "users", uid, "checkIns"), orderBy("createdAt", "desc")))
-      .then((snap) => setCheckIns(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
-  }, [uid]);
-
   const saveSteps = async () => {
     if (stepsInput === "") return;
     setSavingSteps(true);
@@ -335,87 +349,152 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
     setSavingSteps(false);
   };
 
+  if (objLoading) {
+    return <div className="py-12 text-center text-gray-400 text-sm">Se încarcă...</div>;
+  }
+
   return (
     <div className="space-y-5">
-      {/* ── CHECK-IN BANNER ─────────────────────────────── */}
-      {isCheckInDue && (
-        <div className="bg-emerald-500 text-white rounded-2xl px-5 py-4 flex items-center justify-between">
-          <div>
-            <p className="font-bold">14 zile s-au încheiat! 🎯</p>
-            <p className="text-xs text-emerald-100 mt-0.5">Înregistrează greutatea pentru a vedea progresul real</p>
+
+      {/* ── HERO / NO OBJECTIVE ─────────────────────────── */}
+      {activeObjective ? (
+        <div className={`bg-gradient-to-br ${gradClass} text-white rounded-2xl p-6 shadow-lg`}>
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-sm font-medium text-white/70 uppercase tracking-wider mb-1">Greutate estimată</p>
+              {estLoading ? (
+                <div className="text-5xl font-black tracking-tight">...</div>
+              ) : (
+                <div className="flex items-end gap-2">
+                  <span className="text-6xl font-black tracking-tight leading-none">{estWeight?.toFixed(1)}</span>
+                  <span className="text-2xl font-bold mb-1 text-white/80">kg</span>
+                </div>
+              )}
+              {!estLoading && lostSoFar > 0.01 && (
+                <p className="text-sm text-white/80 mt-1.5 font-medium">↓ {lostSoFar.toFixed(2)} kg față de start</p>
+              )}
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-white/60 mb-1">Țintă obiectiv</p>
+              <p className="text-2xl font-bold">{activeObjective.targetWeight} kg</p>
+              <p className="text-xs text-white/60 mt-1">
+                {(estWeight - activeObjective.targetWeight) > 0.05
+                  ? `mai ${(estWeight - activeObjective.targetWeight).toFixed(1)} kg`
+                  : "obiectiv atins! 🎉"}
+              </p>
+            </div>
           </div>
-          <button onClick={() => setShowCheckIn(true)}
-            className="bg-white text-emerald-700 font-semibold text-sm px-4 py-2 rounded-xl hover:bg-emerald-50 shrink-0 ml-3">
-            Check-in
+
+          {/* Progress bar */}
+          <div className="mb-4">
+            <div className="flex justify-between text-xs text-white/60 mb-1.5">
+              <span>Start: {activeObjective.startWeight} kg</span>
+              <span>{progressPct.toFixed(0)}% din obiectiv</span>
+              <span>Țintă: {activeObjective.targetWeight} kg</span>
+            </div>
+            <div className="w-full bg-white/20 rounded-full h-3 overflow-hidden">
+              <div className="h-3 rounded-full bg-white transition-all duration-700"
+                style={{ width: `${Math.min(100, Math.max(2, progressPct))}%` }} />
+            </div>
+          </div>
+
+          {/* Weigh-in recommendation */}
+          <div className="bg-white/15 rounded-xl px-4 py-3 flex items-center gap-3">
+            <span className="text-2xl">⚖️</span>
+            <div className="flex-1">
+              <p className="text-sm font-bold">{weighIn.days === 0 ? "Cântărește-te azi!" : weighIn.msg}</p>
+              <p className="text-xs text-white/70 mt-0.5">
+                {loggedDays > 0
+                  ? `Bazat pe ${loggedDays} ${loggedDays === 1 ? "zi" : "zile"} de date`
+                  : "Adaugă mese zilnic pentru o estimare mai precisă"}
+              </p>
+            </div>
+            {weighIn.days === 0 && (
+              <div className="bg-white text-teal-700 text-xs font-bold px-2 py-1 rounded-lg animate-pulse">AZI</div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center space-y-4">
+          {justExpired && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-2">
+              <p className="text-sm font-semibold text-emerald-700">
+                🎉 Obiectivul anterior s-a încheiat!
+              </p>
+              <p className="text-xs text-emerald-600 mt-0.5">
+                Start: {expiredObjectives[0].startWeight} kg → Țintă: {expiredObjectives[0].targetWeight} kg
+              </p>
+            </div>
+          )}
+          <div className="text-5xl">🎯</div>
+          <div>
+            <h3 className="font-bold text-gray-800 text-lg">Niciun obiectiv activ</h3>
+            <p className="text-sm text-gray-500 mt-1">Setează un obiectiv de 14 zile pentru a urmări progresul tău zilnic.</p>
+          </div>
+          <button onClick={() => setShowAddObjective(true)}
+            className="bg-teal-600 hover:bg-teal-500 text-white font-semibold px-8 py-3 rounded-xl transition-colors">
+            + Adaugă obiectiv nou
           </button>
         </div>
       )}
 
-      {/* ── HERO — GREUTATE ESTIMATĂ ─────────────────────── */}
-      <div className={`bg-gradient-to-br ${gradClass} text-white rounded-2xl p-6 shadow-lg`}>
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <p className="text-sm font-medium text-white/70 uppercase tracking-wider mb-1">Greutate estimată acum</p>
-            {estLoading ? (
-              <div className="text-5xl font-black tracking-tight">...</div>
-            ) : (
-              <div className="flex items-end gap-2">
-                <span className="text-6xl font-black tracking-tight leading-none">
-                  {estWeight?.toFixed(1)}
-                </span>
-                <span className="text-2xl font-bold mb-1 text-white/80">kg</span>
-              </div>
-            )}
-            {!estLoading && lostSoFar > 0.01 && (
-              <p className="text-sm text-white/80 mt-1.5 font-medium">
-                ↓ {lostSoFar.toFixed(2)} kg față de start
-              </p>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-white/60 mb-1">Obiectiv</p>
-            <p className="text-2xl font-bold">{profile.targetWeight} kg</p>
-            <p className="text-xs text-white/60 mt-1">
-              {(estWeight - profile.targetWeight) > 0
-                ? `mai ${(estWeight - profile.targetWeight).toFixed(1)} kg de slăbit`
-                : "obiectiv atins! 🎉"}
-            </p>
-          </div>
-        </div>
-
-        {/* Progress bar */}
-        <div className="mb-4">
-          <div className="flex justify-between text-xs text-white/60 mb-1.5">
-            <span>Start: {profile.cycleStartWeight} kg</span>
-            <span>{progressPct.toFixed(0)}% din obiectiv</span>
-            <span>Țintă: {profile.targetWeight} kg</span>
-          </div>
-          <div className="w-full bg-white/20 rounded-full h-3 overflow-hidden">
-            <div className="h-3 rounded-full bg-white transition-all duration-700"
-              style={{ width: `${Math.min(100, Math.max(2, progressPct))}%` }} />
-          </div>
-        </div>
-
-        {/* Weigh-in recommendation */}
-        <div className="bg-white/15 rounded-xl px-4 py-3 flex items-center gap-3">
-          <span className="text-2xl">⚖️</span>
-          <div className="flex-1">
-            <p className="text-sm font-bold">
-              {weighIn.days === 0 ? "Cântărește-te azi!" : weighIn.msg}
-            </p>
-            <p className="text-xs text-white/70 mt-0.5">
-              {loggedDays > 0
-                ? `Bazat pe ${loggedDays} ${loggedDays === 1 ? "zi" : "zile"} de date — dimineața, pe stomacul gol`
-                : "Adaugă mese zilnic pentru o estimare mai precisă"}
-            </p>
-          </div>
-          {weighIn.days === 0 && (
-            <div className="bg-white text-teal-700 text-xs font-bold px-2 py-1 rounded-lg animate-pulse">
-              AZI
+      {/* ── OBIECTIV — 14 ZILE CALENDAR ─────────────────── */}
+      {activeObjective && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-gray-800">Obiectiv curent — 14 zile</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-xs bg-teal-100 text-teal-700 font-bold px-2.5 py-1 rounded-full">Ziua {cycleDay}/14</span>
+              <button onClick={() => setShowAddObjective(true)}
+                className="text-xs text-teal-600 border border-teal-200 px-2.5 py-1 rounded-lg hover:bg-teal-50">
+                + Nou
+              </button>
             </div>
-          )}
+          </div>
+
+          <div className="flex justify-between text-xs text-gray-500">
+            <span>{new Date(activeObjective.startDate).toLocaleDateString("ro-RO", { day: "numeric", month: "short" })}</span>
+            <span className="text-gray-400">→</span>
+            <span>{new Date(activeObjective.endDate).toLocaleDateString("ro-RO", { day: "numeric", month: "short" })}</span>
+          </div>
+
+          <Bar pct={(cycleDay / 14) * 100} />
+
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: 14 }, (_, i) => {
+              const d = dayData[i];
+              const isPast = i < daysElapsed;
+              const isToday = i === daysElapsed;
+              const isFuture = i > daysElapsed;
+              const logged = d?.logged;
+              return (
+                <div key={i}
+                  className={`rounded-lg p-1.5 text-center text-xs font-bold transition-colors ${
+                    isFuture ? "bg-gray-50 text-gray-300"
+                    : isToday ? "bg-teal-600 text-white"
+                    : logged  ? "bg-emerald-100 text-emerald-700"
+                    : "bg-amber-50 text-amber-400"
+                  }`}
+                  title={d ? `${d.date}: ${logged ? d.eaten + " kcal" : "nelogat"}` : ""}>
+                  <div>{i + 1}</div>
+                  {!isFuture && (
+                    <div className="text-[9px] mt-0.5 opacity-80">
+                      {isToday ? "azi" : logged ? "✓" : "—"}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex gap-3 text-xs flex-wrap">
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-100 inline-block"/>logat</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-amber-50 border border-amber-200 inline-block"/>nelogat</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-teal-600 inline-block"/>azi</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-gray-100 inline-block"/>urmează</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── AZI ─────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
@@ -423,7 +502,6 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
           Azi — {new Date().toLocaleDateString("ro-RO", { weekday: "long", day: "numeric", month: "long" })}
         </h3>
 
-        {/* Steps */}
         <div>
           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Pași parcurși azi</label>
           <div className="flex gap-2">
@@ -431,7 +509,7 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
               <input type="number" min="0" max="100000" value={stepsInput}
                 onChange={(e) => setStepsInput(e.target.value)} onBlur={saveSteps}
                 placeholder="ex. 8500"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400 pr-16" />
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400 pr-12" />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">pași</span>
             </div>
             <button onClick={saveSteps} disabled={savingSteps}
@@ -446,7 +524,6 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
           )}
         </div>
 
-        {/* Calorie summary */}
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-red-50 rounded-xl p-3 text-center">
             <p className="text-xs text-gray-400 mb-0.5">Mâncat</p>
@@ -467,7 +544,6 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
           </div>
         </div>
 
-        {/* Interpretation */}
         <div className={`rounded-xl px-4 py-3 text-sm ${netDeficit > 0 ? "bg-emerald-50 border border-emerald-100" : todayKcal === 0 ? "bg-gray-50" : "bg-amber-50 border border-amber-100"}`}>
           {todayKcal === 0 ? (
             <p className="text-gray-400 text-xs">Adaugă mese în Jurnal pentru a vedea bilanțul caloric al zilei.</p>
@@ -479,60 +555,9 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
           ) : (
             <p className="text-amber-800">
               Azi ai consumat cu <strong>{Math.abs(netDeficit)} kcal</strong> mai mult decât ai ars.
-              O plimbare de 30 min ar arde ~{Math.round(calcStepsCalories(3500, profile.weight))} kcal.
             </p>
           )}
         </div>
-      </div>
-
-      {/* ── CICLU 14 ZILE ──────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-gray-800">Ciclul curent — 14 zile</h3>
-          <span className="text-xs bg-teal-100 text-teal-700 font-bold px-2.5 py-1 rounded-full">Ziua {cycleDay}/14</span>
-        </div>
-
-        <Bar pct={(cycleDay / 14) * 100} />
-
-        {/* Day-by-day mini calendar */}
-        <div className="grid grid-cols-7 gap-1">
-          {Array.from({ length: 14 }, (_, i) => {
-            const d = dayData[i];
-            const isPast = i < daysElapsed;
-            const isToday = i === daysElapsed;
-            const isFuture = i > daysElapsed;
-            const logged = d?.logged;
-            return (
-              <div key={i}
-                className={`rounded-lg p-1.5 text-center text-xs font-bold transition-colors ${
-                  isFuture ? "bg-gray-50 text-gray-300"
-                  : isToday ? "bg-teal-600 text-white"
-                  : logged ? "bg-emerald-100 text-emerald-700"
-                  : "bg-amber-50 text-amber-400"
-                }`}
-                title={d ? `${d.date}: ${d.logged ? d.eaten + " kcal mâncate" : "nelogat"}` : ""}
-              >
-                <div>{i + 1}</div>
-                {!isFuture && <div className="text-[9px] mt-0.5 opacity-80">
-                  {isToday ? "azi" : logged ? "✓" : "—"}
-                </div>}
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="flex gap-2 text-xs">
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-100 inline-block" />logat</span>
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-amber-50 border border-amber-200 inline-block" />nelogat</span>
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-teal-600 inline-block" />azi</span>
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-gray-100 inline-block" />urmează</span>
-        </div>
-
-        {!isCheckInDue && (
-          <p className="text-xs text-gray-400 text-center pt-1">
-            Check-in disponibil în <strong>{14 - daysElapsed} {14 - daysElapsed === 1 ? "zi" : "zile"}</strong> — pregătește-te să te cântărești dimineața!
-          </p>
-        )}
       </div>
 
       {/* ── PROFIL ─────────────────────────────────────── */}
@@ -540,7 +565,7 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
         <div className="flex items-center justify-between mb-3">
           <div>
             <h3 className="font-bold text-gray-800">{auth.currentUser?.displayName?.split(" ")[0]} · Profil</h3>
-            <p className="text-xs text-gray-400">{profile.sex === "F" ? "Femeie" : "Bărbat"} · {profile.age} ani · {profile.height} cm</p>
+            <p className="text-xs text-gray-400">{profile.sex === "F" ? "Femeie" : "Bărbat"} · {profile.age} ani · {profile.height} cm · {profile.weight} kg</p>
           </div>
           <button onClick={() => setShowEdit(true)}
             className="text-xs text-teal-600 border border-teal-200 px-3 py-1.5 rounded-lg hover:bg-teal-50">
@@ -562,27 +587,27 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
         </div>
       </div>
 
-      {/* ── ISTORIC CHECK-IN ────────────────────────────── */}
-      {checkIns.length > 0 && (
+      {/* ── ISTORIC OBIECTIVE ───────────────────────────── */}
+      {expiredObjectives.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-3">
-          <h3 className="font-bold text-gray-800">Istoric check-in-uri</h3>
+          <h3 className="font-bold text-gray-800">Istoric obiective</h3>
           <div className="space-y-2">
-            {checkIns.map((ci) => (
-              <div key={ci.id} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+            {expiredObjectives.map((obj) => (
+              <div key={obj.id} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-800">
-                    {new Date(ci.date).toLocaleDateString("ro-RO", { day: "numeric", month: "short", year: "numeric" })}
+                    {new Date(obj.startDate).toLocaleDateString("ro-RO", { day: "numeric", month: "short" })}
+                    {" → "}
+                    {new Date(obj.endDate).toLocaleDateString("ro-RO", { day: "numeric", month: "short", year: "numeric" })}
                   </p>
-                  {ci.notes && <p className="text-xs text-gray-500 italic mt-0.5">{ci.notes}</p>}
-                </div>
-                <div className="text-right">
-                  <p className={`text-sm font-bold ${ci.actualLoss >= 0 ? "text-emerald-700" : "text-red-500"}`}>
-                    {ci.actualLoss >= 0 ? "-" : "+"}{Math.abs(ci.actualLoss).toFixed(1)} kg
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Start: {obj.startWeight} kg · Țintă: {obj.targetWeight} kg
                   </p>
-                  <p className="text-xs text-gray-400">real vs -{ci.theoreticalLoss.toFixed(1)} teoretic</p>
                 </div>
-                <div className="text-xl">
-                  {ci.actualLoss >= ci.theoreticalLoss ? "🎉" : ci.actualLoss >= 0 ? "✅" : "📉"}
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-bold text-gray-600">
+                    -{(obj.startWeight - obj.targetWeight).toFixed(1)} kg vizat
+                  </p>
                 </div>
               </div>
             ))}
@@ -590,13 +615,11 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
         </div>
       )}
 
-      {showCheckIn && (
-        <CheckInModal profile={profile} bmr={bmr} tdee={tdee}
-          onClose={() => setShowCheckIn(false)} onDone={onProfileUpdate} />
+      {showAddObjective && (
+        <AddObjectiveModal profile={profile} onClose={() => setShowAddObjective(false)} />
       )}
       {showEdit && (
-        <EditProfileModal profile={profile}
-          onClose={() => setShowEdit(false)} onDone={onProfileUpdate} />
+        <EditProfileModal profile={profile} onClose={() => setShowEdit(false)} onDone={onProfileUpdate} />
       )}
     </div>
   );
