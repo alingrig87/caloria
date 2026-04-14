@@ -10,6 +10,7 @@ import CaloriePanel from "./components/CaloriePanel";
 import DietForm from "./components/DietForm";
 import VitalisDiet from "./components/VitalisDiet";
 import Journal from "./components/Journal";
+import ProfileRefresh from "./components/ProfileRefresh";
 
 function ScannerTab() {
   const [image, setImage] = useState(null);
@@ -134,6 +135,15 @@ export default function App() {
   // No profile yet → onboarding
   if (profile === null) {
     return <ProfileSetup onDone={() => setActiveTab("profile")} />;
+  }
+
+  // Profile exists but 14+ days since last update → check-in
+  const lastUpdate = profile.updatedAt?.toDate?.() ?? profile.createdAt?.toDate?.();
+  const daysSinceUpdate = lastUpdate
+    ? (Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60 * 24)
+    : 0;
+  if (daysSinceUpdate >= 14) {
+    return <ProfileRefresh profile={profile} onDone={() => setActiveTab("vitalis")} />;
   }
 
   const tabs = [
