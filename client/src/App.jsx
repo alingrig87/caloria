@@ -106,11 +106,11 @@ function ScannerTab() {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState("diet");
+  const [activeTab, setActiveTab] = useState("mayo");
 
   const tabs = [
-    { id: "diet", label: "🥗 Plan Alimentar" },
     { id: "mayo", label: "✨ Dieta Vitalis" },
+    { id: "diet", label: "🥗 Plan Alimentar" },
     { id: "scanner", label: "📷 Scanner Calorii" },
   ];
 
