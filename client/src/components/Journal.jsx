@@ -49,7 +49,7 @@ function DateNav({ selected, onChange }) {
 }
 
 // ── Add Meal Modal ─────────────────────────────────────────
-function AddMealModal({ onClose }) {
+function AddMealModal({ onClose, onSaved }) {
   const [mode, setMode] = useState("text");
   const [mealType, setMealType] = useState("Prânz");
   const [description, setDescription] = useState("");
@@ -130,29 +130,26 @@ function AddMealModal({ onClose }) {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!result) return;
+    const uid = auth.currentUser?.uid;
+    if (!uid) { setError("Nu ești autentificat."); return; }
     setSaving(true);
-    try {
-      const uid = auth.currentUser.uid;
-      await addDoc(collection(db, "users", uid, "meals"), {
-        mealType,
-        name: result.name,
-        kcal: result.kcal || null,
-        protein: result.protein || null,
-        carbs: result.carbs || null,
-        fat: result.fat || null,
-        items: result.items || [],
-        description: description.trim() || null,
-        date: formatDate(new Date()),
-        createdAt: Timestamp.now(),
-      });
-      onClose();
-    } catch {
-      setError("Eroare la salvare. Încearcă din nou.");
-    } finally {
-      setSaving(false);
-    }
+    // Fire-and-forget — don't block the UI on the network round-trip
+    addDoc(collection(db, "users", uid, "meals"), {
+      mealType,
+      name: result.name,
+      kcal: result.kcal || null,
+      protein: result.protein || null,
+      carbs: result.carbs || null,
+      fat: result.fat || null,
+      items: result.items || [],
+      description: description.trim() || null,
+      date: formatDate(new Date()),
+      createdAt: Timestamp.now(),
+    }).catch(console.error);
+    onClose();
+    if (onSaved) onSaved();
   };
 
   const loading = estimating || analyzing;
@@ -279,7 +276,6 @@ function AddActivityModal({ onClose, weightKg }) {
   const [description, setDescription] = useState("");
   const [result, setResult] = useState(null);
   const [estimating, setEstimating] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const estimateActivity = async () => {
@@ -303,26 +299,21 @@ function AddActivityModal({ onClose, weightKg }) {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!result) return;
+    const uid = auth.currentUser?.uid;
+    if (!uid) { setError("Nu ești autentificat."); return; }
     setSaving(true);
-    try {
-      const uid = auth.currentUser.uid;
-      await addDoc(collection(db, "users", uid, "activities"), {
-        name: result.name,
-        duration: result.duration,
-        caloriesBurned: result.caloriesBurned,
-        type: result.type || "other",
-        description: description.trim(),
-        date: formatDate(new Date()),
-        createdAt: Timestamp.now(),
-      });
-      onClose();
-    } catch {
-      setError("Eroare la salvare. Încearcă din nou.");
-    } finally {
-      setSaving(false);
-    }
+    addDoc(collection(db, "users", uid, "activities"), {
+      name: result.name,
+      duration: result.duration,
+      caloriesBurned: result.caloriesBurned,
+      type: result.type || "other",
+      description: description.trim(),
+      date: formatDate(new Date()),
+      createdAt: Timestamp.now(),
+    }).catch(console.error);
+    onClose();
   };
 
   return (
@@ -363,9 +354,9 @@ function AddActivityModal({ onClose, weightKg }) {
                 </div>
                 <span className="text-2xl font-bold text-orange-600">-{result.caloriesBurned} kcal</span>
               </div>
-              <button onClick={handleSave} disabled={saving}
-                className="w-full bg-teal-600 hover:bg-teal-500 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl transition-colors">
-                {saving ? "Se salvează..." : "✅ Salvează activitatea"}
+              <button onClick={handleSave}
+                className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-3 rounded-xl transition-colors">
+                ✅ Salvează activitatea
               </button>
             </div>
           )}
@@ -525,7 +516,7 @@ function ActivityCard({ activity, onDelete }) {
 }
 
 // ── Journal ────────────────────────────────────────────────
-export default function Journal({ profile }) {
+export default function Journal({ profile, onGoToJournal }) {
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [meals, setMeals] = useState([]);
   const [activities, setActivities] = useState([]);
@@ -649,7 +640,12 @@ export default function Journal({ profile }) {
         </div>
       )}
 
-      {showMealModal && <AddMealModal onClose={() => setShowMealModal(false)} />}
+      {showMealModal && (
+        <AddMealModal
+          onClose={() => setShowMealModal(false)}
+          onSaved={() => { setShowMealModal(false); if (onGoToJournal) onGoToJournal(); }}
+        />
+      )}
       {editingMeal && <EditMealModal meal={editingMeal} onClose={() => setEditingMeal(null)} />}
       {showActivityModal && (
         <AddActivityModal

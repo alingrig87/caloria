@@ -170,7 +170,7 @@ export default function App() {
         {activeTab === "scanner"  && <ScannerTab />}
         {activeTab === "vitalis"  && <VitalisDiet />}
         {activeTab === "diet"     && <DietForm />}
-        {activeTab === "journal"  && <Journal profile={profile} />}
+        {activeTab === "journal"  && <Journal profile={profile} onGoToJournal={() => setActiveTab("journal")} />}
         {activeTab === "profile"  && (
           <ProfileTab profile={profile} onProfileUpdate={() => {}} />
         )}
