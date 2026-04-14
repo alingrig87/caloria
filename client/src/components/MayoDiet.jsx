@@ -5,113 +5,113 @@ const WEEKS = [
       {
         day: "Luni", date: "Ziua 1",
         meals: [
-          { time: "08:00", type: "Cafea", icon: "☕", foods: "Cafea neagră fără zahăr", kcal: 0, coffee: true },
+          { time: "08:00", type: "Mic dejun", icon: "🌅", foods: "2 ouă fierte + roșii + castraveți + ardei gras crud", kcal: 195 },
           {
             time: "13:00", type: "Prânz", icon: "☀️",
             options: [
-              { label: "Ușor",      foods: "100g păstrăv la grătar + salată verde cu lămâie (fără ulei)", kcal: 260 },
-              { label: "Normal",    foods: "150g păstrăv la grătar + salată cu roșii, castraveți + 1 lg ulei de măsline", kcal: 390 },
-              { label: "Consistent", foods: "200g păstrăv la grătar + salată bogată cu roșii, ardei, castraveți, ulei + ou fiert", kcal: 520 },
+              { label: "Ușor",       foods: "Salată verde cu castraveți, roșii, lămâie + 1 ou fiert", kcal: 140 },
+              { label: "Normal",     foods: "Salată verde mare cu roșii, ardei, castraveți + 2 ouă fierte + ulei de măsline", kcal: 280 },
+              { label: "Consistent", foods: "Salată bogată + 2 ouă fierte + ½ avocado + ulei de măsline + semințe de dovleac", kcal: 420 },
             ],
           },
-          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Măr + 10 nuci", kcal: 210, optional: true },
-          { time: "19:00", type: "Cină", icon: "🌙", foods: "Păstrăv la cuptor cu lămâie și ierburi (150g) + broccoli la abur + morcovi fierți", kcal: 310 },
+          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Iaurt grec (150g) + afine", kcal: 155, optional: true },
+          { time: "19:00", type: "Cină", icon: "🌙", foods: "Păstrăv la grătar cu lămâie și ierburi (180g) + broccoli la abur + morcovi fierți", kcal: 360 },
         ],
       },
       {
         day: "Marți", date: "Ziua 2",
         meals: [
-          { time: "08:00", type: "Cafea", icon: "☕", foods: "Cafea neagră fără zahăr", kcal: 0, coffee: true },
+          { time: "08:00", type: "Mic dejun", icon: "🌅", foods: "Iaurt grec (200g) + fulgi de ovăz (40g) + fructe de pădure (căpșuni, afine)", kcal: 290 },
           {
             time: "13:00", type: "Prânz", icon: "☀️",
             options: [
-              { label: "Ușor",      foods: "Supă de pui cu legume (400ml), fără carne adăugată", kcal: 180 },
-              { label: "Normal",    foods: "Supă de pui cu legume + piept de pui fiert (120g)", kcal: 380 },
-              { label: "Consistent", foods: "Supă de pui + piept de pui fiert (180g) + morcovi fierți + ou fiert", kcal: 550 },
+              { label: "Ușor",       foods: "Supă de legume (400ml, fără carne)", kcal: 120 },
+              { label: "Normal",     foods: "Supă de legume (500ml) + 2 ouă fierte + salată de roșii", kcal: 270 },
+              { label: "Consistent", foods: "Supă de legume (600ml) + 3 ouă fierte + salată verde cu ulei de măsline", kcal: 390 },
             ],
           },
-          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Iaurt grec simplu 2% (200g) + afine sau zmeură (100g)", kcal: 195, optional: true },
-          { time: "19:00", type: "Cină", icon: "🌙", foods: "Piept de pui la cuptor cu usturoi și rozmarin (150g) + varză albă murată sau salată de varză crudă", kcal: 340 },
+          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Măr + 10 migdale", kcal: 195, optional: true },
+          { time: "19:00", type: "Cină", icon: "🌙", foods: "Piept de pui la cuptor cu usturoi și rozmarin (180g) + fasole verde la abur + morcovi", kcal: 380 },
         ],
       },
       {
         day: "Miercuri", date: "Ziua 3",
         meals: [
-          { time: "08:00", type: "Cafea", icon: "☕", foods: "Cafea neagră fără zahăr", kcal: 0, coffee: true },
+          { time: "08:00", type: "Mic dejun", icon: "🌅", foods: "Omletă (2 ouă) cu ardei roșu, roșii și ceapă verde, la tigaie fără ulei", kcal: 215 },
           {
             time: "13:00", type: "Prânz", icon: "☀️",
             options: [
-              { label: "Ușor",      foods: "100g ton în suc propriu + salată de castraveți cu lămâie", kcal: 220 },
-              { label: "Normal",    foods: "150g ton în suc propriu + salată castraveți, roșii, ceapă verde + ou fiert", kcal: 370 },
-              { label: "Consistent", foods: "200g ton + salată bogată + ou fiert + ½ avocado", kcal: 530 },
+              { label: "Ușor",       foods: "Castraveți + roșii + ardei cruzi cu lămâie și sare", kcal: 80 },
+              { label: "Normal",     foods: "Salată de castraveți, roșii, ardei + ou fiert + ulei de măsline", kcal: 230 },
+              { label: "Consistent", foods: "Salată bogată de legume + 2 ouă fierte + iaurt grec (100g) pentru dressing", kcal: 370 },
             ],
           },
-          { time: "16:30", type: "Gustare", icon: "🍎", foods: "2 ouă fierte tari", kcal: 155, optional: true },
-          { time: "19:00", type: "Cină", icon: "🌙", foods: "Piept de pui la grătar (150g) + dovlecel la grătar + fasole verde la abur", kcal: 340 },
+          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Pară + 10 nuci", kcal: 220, optional: true },
+          { time: "19:00", type: "Cină", icon: "🌙", foods: "Ton în suc propriu (180g) + salată verde mare cu roșii, ardei, ulei de măsline", kcal: 340 },
         ],
       },
       {
         day: "Joi", date: "Ziua 4",
         meals: [
-          { time: "08:00", type: "Cafea", icon: "☕", foods: "Cafea neagră fără zahăr", kcal: 0, coffee: true },
+          { time: "08:00", type: "Mic dejun", icon: "🌅", foods: "Fulgi de ovăz (50g) fierți în apă + iaurt simplu (100g) + banană", kcal: 310 },
           {
             time: "13:00", type: "Prânz", icon: "☀️",
             options: [
-              { label: "Ușor",      foods: "Supă cremă de legume (300ml, fără smântână) + 100g piept de pui la cuptor", kcal: 300 },
-              { label: "Normal",    foods: "Supă cremă de legume (400ml) + 150g piept de pui la cuptor", kcal: 400 },
-              { label: "Consistent", foods: "Supă cremă de legume (500ml) + 200g piept de pui + legume la abur", kcal: 560 },
+              { label: "Ușor",       foods: "Supă cremă de broccoli (350ml, fără smântână)", kcal: 130 },
+              { label: "Normal",     foods: "Supă cremă de broccoli (450ml) + 2 ouă fierte", kcal: 280 },
+              { label: "Consistent", foods: "Supă cremă de broccoli (550ml) + 2 ouă fierte + salată verde cu ulei", kcal: 400 },
             ],
           },
-          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Pară + 10 nuci caju nesărate", kcal: 215, optional: true },
-          { time: "19:00", type: "Cină", icon: "🌙", foods: "Fileu de cod la cuptor cu lămâie (150g) + mazăre verde la abur + morcovi", kcal: 310 },
+          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Iaurt grec (150g) + zmeură", kcal: 145, optional: true },
+          { time: "19:00", type: "Cină", icon: "🌙", foods: "Fileu de cod la cuptor cu lămâie și cimbru (180g) + sparanghel la grătar + roșii la cuptor", kcal: 330 },
         ],
       },
       {
         day: "Vineri", date: "Ziua 5",
         meals: [
-          { time: "08:00", type: "Cafea", icon: "☕", foods: "Cafea neagră fără zahăr", kcal: 0, coffee: true },
+          { time: "08:00", type: "Mic dejun", icon: "🌅", foods: "2 ouă ochiuri (tigaie anti-aderentă) + ½ avocado + roșii cherry + castraveți", kcal: 295 },
           {
             time: "13:00", type: "Prânz", icon: "☀️",
             options: [
-              { label: "Ușor",      foods: "100g piept de pui la grătar + salată verde mare cu lămâie (fără ulei)", kcal: 240 },
-              { label: "Normal",    foods: "130g piept de pui la grătar + salată cu frunze verzi, roșii cherry, castraveți + ulei de măsline", kcal: 360 },
-              { label: "Consistent", foods: "200g piept de pui la grătar + salată bogată + ulei + ½ avocado + ou fiert", kcal: 540 },
+              { label: "Ușor",       foods: "Salată de spanac proaspăt cu lămâie + ou fiert", kcal: 155 },
+              { label: "Normal",     foods: "Salată de spanac proaspăt + roșii cherry + 2 ouă fierte + ulei de măsline", kcal: 300 },
+              { label: "Consistent", foods: "Salată mare de spanac + roșii + ardei + 2 ouă fierte + ½ avocado + ulei", kcal: 460 },
             ],
           },
-          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Iaurt simplu (150g) + fructe de pădure mixte (căpșuni, zmeură, afine)", kcal: 175, optional: true },
-          { time: "19:00", type: "Cină", icon: "🌙", foods: "Păstrăv la grătar (150g) + salată de roșii cu busuioc + spanac proaspăt cu lămâie", kcal: 310 },
+          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Portocală + 10 nuci caju nesărate", kcal: 215, optional: true },
+          { time: "19:00", type: "Cină", icon: "🌙", foods: "Somon la cuptor cu ierburi și lămâie (150g) + broccoli la abur + morcovi", kcal: 390 },
         ],
       },
       {
         day: "Sâmbătă", date: "Ziua 6",
         meals: [
-          { time: "08:30", type: "Cafea", icon: "☕", foods: "Cafea neagră fără zahăr", kcal: 0, coffee: true },
+          { time: "08:30", type: "Mic dejun", icon: "🌅", foods: "Fulgi de ovăz (50g) + iaurt grec (150g) + miere (1 lg) + nuci (10 buc)", kcal: 360 },
           {
             time: "13:30", type: "Prânz", icon: "☀️",
             options: [
-              { label: "Ușor",      foods: "Ciorbă de legume (400ml) + ou fiert", kcal: 230 },
-              { label: "Normal",    foods: "Ciorbă de legume (500ml) + ou fiert + 100g piept de pui fiert", kcal: 340 },
-              { label: "Consistent", foods: "Ciorbă de legume (600ml) + 2 ouă fierte + 150g piept de pui fiert", kcal: 500 },
+              { label: "Ușor",       foods: "Ciorbă de legume (400ml, fără carne)", kcal: 110 },
+              { label: "Normal",     foods: "Ciorbă de legume (500ml) + 2 ouă fierte", kcal: 250 },
+              { label: "Consistent", foods: "Ciorbă de legume (600ml) + 3 ouă fierte + salată de roșii cu ulei", kcal: 390 },
             ],
           },
-          { time: "16:30", type: "Gustare", icon: "🍎", foods: "10 nuci + portocală", kcal: 230, optional: true },
-          { time: "19:30", type: "Cină", icon: "🌙", foods: "Piept de pui la grătar (150g) + salată verde mare cu legume variate și ulei de măsline", kcal: 360 },
+          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Mere (2 buc mici) + scorțișoară", kcal: 130, optional: true },
+          { time: "19:30", type: "Cină", icon: "🌙", foods: "Piept de pui la grătar cu usturoi și lămâie (180g) + salată verde mare cu ardei și ulei de măsline", kcal: 380 },
         ],
       },
       {
         day: "Duminică", date: "Ziua 7",
         meals: [
-          { time: "09:00", type: "Cafea", icon: "☕", foods: "Cafea neagră fără zahăr", kcal: 0, coffee: true },
+          { time: "09:00", type: "Mic dejun", icon: "🌅", foods: "Iaurt grec (200g) + fulgi de ovăz (30g) + banană + scorțișoară", kcal: 300 },
           {
             time: "13:30", type: "Prânz", icon: "☀️",
             options: [
-              { label: "Ușor",      foods: "Supă de pui cu rădăcinoase (400ml), fără carne adăugată", kcal: 200 },
-              { label: "Normal",    foods: "Supă de pui cu rădăcinoase (500ml) + 120g piept de pui + morcovi fierți", kcal: 390 },
-              { label: "Consistent", foods: "Supă de pui (600ml) + 200g piept de pui + morcovi fierți + ou fiert", kcal: 560 },
+              { label: "Ușor",       foods: "Salată de roșii + castraveți + ardei + lămâie", kcal: 70 },
+              { label: "Normal",     foods: "Salată de roșii, castraveți, ardei + 2 ouă fierte + ulei de măsline", kcal: 280 },
+              { label: "Consistent", foods: "Salată bogată + 2 ouă fierte + brânză de vaci (100g) + ulei de măsline", kcal: 420 },
             ],
           },
-          { time: "16:30", type: "Gustare", icon: "🍎", foods: "2 ouă fierte + roșii proaspete", kcal: 185, optional: true },
-          { time: "19:00", type: "Cină", icon: "🌙", foods: "Somon la cuptor cu ierburi și lămâie (130g) + broccoli la abur + morcovi glazurați ușor", kcal: 380 },
+          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Iaurt simplu (150g) + fructe de pădure", kcal: 140, optional: true },
+          { time: "19:00", type: "Cină", icon: "🌙", foods: "Păstrăv la cuptor cu lămâie, cimbru și usturoi (180g) + dovlecel la grătar + morcovi fierți", kcal: 350 },
         ],
       },
     ],
@@ -122,113 +122,113 @@ const WEEKS = [
       {
         day: "Luni", date: "Ziua 8",
         meals: [
-          { time: "08:00", type: "Cafea", icon: "☕", foods: "Cafea neagră fără zahăr", kcal: 0, coffee: true },
+          { time: "08:00", type: "Mic dejun", icon: "🌅", foods: "2 ouă fierte + ardei gras crud (roșu sau galben) + roșii proaspete + castraveți", kcal: 200 },
           {
             time: "13:00", type: "Prânz", icon: "☀️",
             options: [
-              { label: "Ușor",      foods: "100g piept de pui la grătar + salată de varză albă cu lămâie (fără ulei)", kcal: 250 },
-              { label: "Normal",    foods: "150g piept de pui la grătar + salată de varză cu morcov ras și lămâie", kcal: 370 },
-              { label: "Consistent", foods: "200g piept de pui la grătar + salată de varză mare + ou fiert", kcal: 520 },
+              { label: "Ușor",       foods: "Salată de varză albă rasă cu morcov și lămâie", kcal: 90 },
+              { label: "Normal",     foods: "Salată de varză albă cu morcov ras + 2 ouă fierte + ulei de măsline", kcal: 285 },
+              { label: "Consistent", foods: "Salată de varză + morcov + 2 ouă fierte + ½ avocado + ulei de măsline", kcal: 430 },
             ],
           },
-          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Măr + 12 migdale", kcal: 200, optional: true },
-          { time: "19:00", type: "Cină", icon: "🌙", foods: "Păstrăv la abur cu ierburi (150g) + sparanghel la grătar + lămâie", kcal: 290 },
+          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Iaurt grec (150g) + căpșuni (100g)", kcal: 145, optional: true },
+          { time: "19:00", type: "Cină", icon: "🌙", foods: "Piept de pui la grătar cu ierburi (180g) + sparanghel la abur + lămâie", kcal: 360 },
         ],
       },
       {
         day: "Marți", date: "Ziua 9",
         meals: [
-          { time: "08:00", type: "Cafea", icon: "☕", foods: "Cafea neagră fără zahăr", kcal: 0, coffee: true },
+          { time: "08:00", type: "Mic dejun", icon: "🌅", foods: "Omletă (2 ouă) cu ciuperci și ceapă verde + roșii proaspete pe lângă", kcal: 225 },
           {
             time: "13:00", type: "Prânz", icon: "☀️",
             options: [
-              { label: "Ușor",      foods: "100g ton în suc propriu + salată verde cu castraveți și lămâie", kcal: 220 },
-              { label: "Normal",    foods: "150g ton în suc propriu + salată cu castraveți, ardei, lămâie + ou fiert", kcal: 365 },
-              { label: "Consistent", foods: "200g ton + salată bogată cu ardei, castraveți + ou fiert + ½ avocado", kcal: 530 },
+              { label: "Ușor",       foods: "Supă cremă de morcov și pastârnac (350ml)", kcal: 125 },
+              { label: "Normal",     foods: "Supă cremă de morcov și pastârnac (450ml) + 2 ouă fierte", kcal: 270 },
+              { label: "Consistent", foods: "Supă cremă (550ml) + 2 ouă fierte + salată verde cu ulei de măsline", kcal: 400 },
             ],
           },
-          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Iaurt grec (200g) + căpșuni (100g)", kcal: 190, optional: true },
-          { time: "19:00", type: "Cină", icon: "🌙", foods: "Piept de pui la cuptor cu usturoi (150g) + mazăre verde + morcovi fierți", kcal: 360 },
+          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Pară + 10 migdale", kcal: 205, optional: true },
+          { time: "19:00", type: "Cină", icon: "🌙", foods: "Ton în suc propriu (180g) + salată mare cu frunze verzi, roșii, ardei, castraveți + ulei de măsline", kcal: 350 },
         ],
       },
       {
         day: "Miercuri", date: "Ziua 10",
         meals: [
-          { time: "08:00", type: "Cafea", icon: "☕", foods: "Cafea neagră fără zahăr", kcal: 0, coffee: true },
+          { time: "08:00", type: "Mic dejun", icon: "🌅", foods: "Fulgi de ovăz (50g) + iaurt grec (150g) + afine + semințe de in (1 lg)", kcal: 310 },
           {
             time: "13:00", type: "Prânz", icon: "☀️",
             options: [
-              { label: "Ușor",      foods: "Supă cremă de broccoli (300ml) + ou fiert", kcal: 240 },
-              { label: "Normal",    foods: "Supă cremă de broccoli (400ml) + ou fiert + 100g piept de pui fiert", kcal: 390 },
-              { label: "Consistent", foods: "Supă cremă de broccoli (500ml) + 2 ouă fierte + 150g piept de pui fiert", kcal: 540 },
+              { label: "Ușor",       foods: "Salată de spanac proaspăt cu lămâie + castraveți", kcal: 65 },
+              { label: "Normal",     foods: "Salată de spanac + castraveți + roșii + 2 ouă fierte + ulei de măsline", kcal: 280 },
+              { label: "Consistent", foods: "Salată de spanac + roșii + ardei + 3 ouă fierte + ½ avocado + ulei", kcal: 460 },
             ],
           },
-          { time: "16:30", type: "Gustare", icon: "🍎", foods: "2 ouă fierte tari", kcal: 155, optional: true },
-          { time: "19:00", type: "Cină", icon: "🌙", foods: "Cod la grătar cu lămâie (150g) + salată de roșii cu ardei și busuioc", kcal: 290 },
+          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Măr + 10 nuci", kcal: 205, optional: true },
+          { time: "19:00", type: "Cină", icon: "🌙", foods: "Cod la cuptor cu lămâie și usturoi (180g) + fasole verde la abur + roșii cherry", kcal: 330 },
         ],
       },
       {
         day: "Joi", date: "Ziua 11",
         meals: [
-          { time: "08:00", type: "Cafea", icon: "☕", foods: "Cafea neagră fără zahăr", kcal: 0, coffee: true },
+          { time: "08:00", type: "Mic dejun", icon: "🌅", foods: "Iaurt grec (200g) + fulgi de ovăz (40g) + zmeură + scorțișoară", kcal: 285 },
           {
             time: "13:00", type: "Prânz", icon: "☀️",
             options: [
-              { label: "Ușor",      foods: "100g piept de pui cu dovlecel și ardei la tigaie (fără ulei)", kcal: 270 },
-              { label: "Normal",    foods: "150g piept de pui cu dovlecel, ardei, roșii, usturoi la tigaie", kcal: 400 },
-              { label: "Consistent", foods: "200g piept de pui cu legume la tigaie + ou fiert + salată verde", kcal: 560 },
+              { label: "Ușor",       foods: "Ciorbă de legume (400ml, fără carne)", kcal: 115 },
+              { label: "Normal",     foods: "Ciorbă de legume (500ml) + 2 ouă fierte + salată de roșii", kcal: 270 },
+              { label: "Consistent", foods: "Ciorbă de legume (600ml) + 2 ouă fierte + brânză de vaci (80g)", kcal: 390 },
             ],
           },
-          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Măr + 10 nuci", kcal: 210, optional: true },
-          { time: "19:00", type: "Cină", icon: "🌙", foods: "Păstrăv la cuptor cu lămâie și cimbru (150g) + salată verde mare", kcal: 300 },
+          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Portocală + 10 nuci", kcal: 215, optional: true },
+          { time: "19:00", type: "Cină", icon: "🌙", foods: "Piept de pui la cuptor cu ardei și roșii la cuptor (180g) + dovlecel la grătar", kcal: 370 },
         ],
       },
       {
         day: "Vineri", date: "Ziua 12",
         meals: [
-          { time: "08:00", type: "Cafea", icon: "☕", foods: "Cafea neagră fără zahăr", kcal: 0, coffee: true },
+          { time: "08:00", type: "Mic dejun", icon: "🌅", foods: "2 ouă scramble (fără ulei) + roșii cherry + castraveți + ardei crud", kcal: 210 },
           {
             time: "13:00", type: "Prânz", icon: "☀️",
             options: [
-              { label: "Ușor",      foods: "Supă de pui cu broccolini (400ml), fără carne adăugată", kcal: 190 },
-              { label: "Normal",    foods: "Supă de pui cu legume (500ml) + 120g piept de pui fiert", kcal: 380 },
-              { label: "Consistent", foods: "Supă de pui (600ml) + 180g piept de pui fiert + ou fiert", kcal: 540 },
+              { label: "Ușor",       foods: "Salată de roșii, ardei, castraveți cu lămâie", kcal: 75 },
+              { label: "Normal",     foods: "Salată de roșii, ardei, castraveți + 2 ouă fierte + ulei de măsline", kcal: 290 },
+              { label: "Consistent", foods: "Salată bogată de legume + 2 ouă fierte + iaurt grec (100g) ca dressing + ulei", kcal: 420 },
             ],
           },
-          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Iaurt grec (200g) + fructe de pădure + scorțișoară", kcal: 190, optional: true },
-          { time: "19:00", type: "Cină", icon: "🌙", foods: "Somon la grătar cu ierburi (130g) + broccoli la abur + spanac proaspăt cu ulei de măsline", kcal: 370 },
+          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Iaurt simplu (150g) + fructe de pădure mixte", kcal: 140, optional: true },
+          { time: "19:00", type: "Cină", icon: "🌙", foods: "Somon la grătar cu ierburi (150g) + broccoli la abur + morcovi fierți + lămâie", kcal: 390 },
         ],
       },
       {
         day: "Sâmbătă", date: "Ziua 13",
         meals: [
-          { time: "08:30", type: "Cafea", icon: "☕", foods: "Cafea neagră fără zahăr", kcal: 0, coffee: true },
+          { time: "08:30", type: "Mic dejun", icon: "🌅", foods: "Fulgi de ovăz (50g) + iaurt grec (150g) + banană + nuci (8 buc)", kcal: 370 },
           {
             time: "13:30", type: "Prânz", icon: "☀️",
             options: [
-              { label: "Ușor",      foods: "100g piept de pui la grătar + fasole verde la abur cu lămâie", kcal: 250 },
-              { label: "Normal",    foods: "150g piept de pui la grătar + fasole verde la abur cu usturoi și lămâie", kcal: 350 },
-              { label: "Consistent", foods: "200g piept de pui la grătar + fasole verde + salată de roșii + ulei de măsline", kcal: 490 },
+              { label: "Ușor",       foods: "Supă de legume (400ml) cu ou bătut în supă", kcal: 130 },
+              { label: "Normal",     foods: "Supă de legume (500ml) + 2 ouă fierte + salată verde", kcal: 265 },
+              { label: "Consistent", foods: "Supă de legume (600ml) + 3 ouă fierte + salată verde cu avocado", kcal: 430 },
             ],
           },
-          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Pară + 10 migdale", kcal: 215, optional: true },
-          { time: "19:30", type: "Cină", icon: "🌙", foods: "Ton în suc propriu (150g) + salată mare cu frunze verzi, roșii, castraveți, ardei, ulei de măsline + lămâie", kcal: 330 },
+          { time: "16:30", type: "Gustare", icon: "🍎", foods: "Mere (1 buc) + 10 migdale", kcal: 190, optional: true },
+          { time: "19:30", type: "Cină", icon: "🌙", foods: "Piept de pui la grătar cu lămâie (180g) + salată de varză albă cu morcov ras și ulei de măsline", kcal: 370 },
         ],
       },
       {
         day: "Duminică", date: "Ziua 14",
         meals: [
-          { time: "09:00", type: "Cafea", icon: "☕", foods: "Cafea neagră fără zahăr", kcal: 0, coffee: true },
+          { time: "09:00", type: "Mic dejun", icon: "🌅", foods: "Iaurt grec (200g) + fulgi de ovăz (40g) + căpșuni + semințe de dovleac (1 lg)", kcal: 305 },
           {
             time: "13:30", type: "Prânz", icon: "☀️",
             options: [
-              { label: "Ușor",      foods: "Ciorbă de legume (400ml) + ou fiert", kcal: 220 },
-              { label: "Normal",    foods: "Ciorbă de legume (500ml) + 2 ouă fierte", kcal: 350 },
-              { label: "Consistent", foods: "Ciorbă de legume (600ml) + 2 ouă fierte + 150g piept de pui fiert", kcal: 510 },
+              { label: "Ușor",       foods: "Salată colorată de legume (roșii, ardei, castraveți, ceapă) cu lămâie", kcal: 80 },
+              { label: "Normal",     foods: "Salată colorată de legume + 2 ouă fierte + ulei de măsline", kcal: 285 },
+              { label: "Consistent", foods: "Salată colorată + 2 ouă fierte + ½ avocado + brânză de vaci (80g) + ulei", kcal: 450 },
             ],
           },
-          { time: "16:30", type: "Gustare", icon: "🍎", foods: "2 ouă fierte + castraveți + roșii", kcal: 190, optional: true },
-          { time: "19:00", type: "Cină", icon: "🌙", foods: "Păstrăv la grătar cu lămâie și ierburi (150g) + salată de legume colorate (roșii, ardei, avocado, frunze verzi)", kcal: 370 },
+          { time: "16:30", type: "Gustare", icon: "🍎", foods: "2 ouă fierte + castraveți + roșii", kcal: 185, optional: true },
+          { time: "19:00", type: "Cină", icon: "🌙", foods: "Păstrăv la grătar cu lămâie, cimbru și ierburi (180g) + salată de legume colorate cu ulei de măsline", kcal: 370 },
         ],
       },
     ],
@@ -236,16 +236,16 @@ const WEEKS = [
 ];
 
 const RULES = [
+  { icon: "✅", text: "Mic dejun: ouă, iaurt sau ovăz cu legume — nu sări peste el" },
+  { icon: "✅", text: "Prânz: salate sau supe cu ouă — alegeți porția după apetit" },
+  { icon: "✅", text: "Cină: întotdeauna pește, pui, ton sau altă carne slabă" },
   { icon: "✅", text: "Apă: minimum 2L pe zi, un pahar înainte de fiecare masă" },
-  { icon: "✅", text: "Proteine la fiecare masă principală (pui, pește, ouă)" },
   { icon: "✅", text: "Grăsimi sănătoase: ulei de măsline, avocado, nuci, semințe" },
-  { icon: "✅", text: "Legume nelimitate la prânz și cină (crude sau la abur)" },
-  { icon: "✅", text: "Gătit: grătar, cuptor, abur, tigaie anti-aderentă fără ulei" },
   { icon: "❌", text: "Fără zahăr adăugat, băuturi îndulcite sau sucuri" },
   { icon: "❌", text: "Fără pâine, paste, orez, cartofi (prima săptămână strict)" },
   { icon: "❌", text: "Fără mezeluri, produse procesate sau afumate" },
   { icon: "❌", text: "Fără prăjeli sau gătit cu mult ulei" },
-  { icon: "⚠️", text: "Fructele — permise la gustare, nu seara târziu" },
+  { icon: "⚠️", text: "Gustarea — opțională, numai dacă simți foame reală" },
 ];
 
 const OPTION_STYLES = [
@@ -255,17 +255,17 @@ const OPTION_STYLES = [
 ];
 
 const MEAL_COLORS = {
-  "Cafea":   "bg-stone-50",
-  "Prânz":   "bg-white",
-  "Gustare": "bg-blue-50",
-  "Cină":    "bg-indigo-50",
+  "Mic dejun": "bg-amber-50",
+  "Prânz":     "bg-white",
+  "Gustare":   "bg-blue-50",
+  "Cină":      "bg-indigo-50",
 };
 
 const MEAL_BADGE = {
-  "Cafea":   "bg-stone-100 text-stone-600",
-  "Prânz":   "bg-green-100 text-green-800",
-  "Gustare": "bg-blue-100 text-blue-800",
-  "Cină":    "bg-indigo-100 text-indigo-800",
+  "Mic dejun": "bg-amber-100 text-amber-800",
+  "Prânz":     "bg-green-100 text-green-800",
+  "Gustare":   "bg-blue-100 text-blue-800",
+  "Cină":      "bg-indigo-100 text-indigo-800",
 };
 
 export default function MayoDiet() {
@@ -277,12 +277,12 @@ export default function MayoDiet() {
         <p className="text-teal-100 text-sm mb-5">Programul alimentar complet de 14 zile · Alimente naturale integrale</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-teal-200 mb-2">Orele meselor</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-teal-200 mb-2">Structura zilei</p>
             <div className="space-y-1.5 text-sm">
-              <div className="flex items-center gap-2"><span>☕</span><span><strong>08:00</strong> — Cafea neagră</span></div>
+              <div className="flex items-center gap-2"><span>🌅</span><span><strong>08:00</strong> — Mic dejun (ouă / iaurt / ovăz)</span></div>
               <div className="flex items-center gap-2"><span>☀️</span><span><strong>13:00</strong> — Prânz (3 variante de porție)</span></div>
               <div className="flex items-center gap-2"><span>🍎</span><span><strong>16:30</strong> — Gustare <span className="text-teal-300">(opțional)</span></span></div>
-              <div className="flex items-center gap-2"><span>🌙</span><span><strong>19:00</strong> — Cină</span></div>
+              <div className="flex items-center gap-2"><span>🌙</span><span><strong>19:00</strong> — Cină (pește / pui / carne)</span></div>
             </div>
           </div>
           <div>
@@ -323,7 +323,7 @@ export default function MayoDiet() {
 
           {week.days.map((day) => {
             const normalLunchKcal = day.meals.find(m => m.options)?.options[1]?.kcal ?? 0;
-            const otherKcal = day.meals.filter(m => !m.options && !m.coffee).reduce((s, m) => s + m.kcal, 0);
+            const otherKcal = day.meals.filter(m => !m.options).reduce((s, m) => s + m.kcal, 0);
             return (
               <div key={day.date} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="bg-gray-50 border-b border-gray-200 px-5 py-3 flex items-center justify-between">
@@ -368,7 +368,7 @@ export default function MayoDiet() {
                     }
 
                     return (
-                      <div key={mi} className={`flex gap-4 px-5 py-3 ${MEAL_COLORS[meal.type]} ${meal.coffee ? "opacity-55" : ""}`}>
+                      <div key={mi} className={`flex gap-4 px-5 py-3 ${MEAL_COLORS[meal.type]}`}>
                         <div className="text-center shrink-0 w-14">
                           <div className="text-lg">{meal.icon}</div>
                           <div className="text-xs font-bold text-gray-500 mt-0.5">{meal.time}</div>
@@ -381,13 +381,9 @@ export default function MayoDiet() {
                             {meal.optional && (
                               <span className="text-xs text-gray-400 italic">opțional</span>
                             )}
-                            {!meal.coffee && (
-                              <span className="text-xs text-gray-400">~{meal.kcal} kcal</span>
-                            )}
+                            <span className="text-xs text-gray-400">~{meal.kcal} kcal</span>
                           </div>
-                          <p className={`text-sm leading-relaxed ${meal.coffee ? "text-gray-400 italic" : "text-gray-700"}`}>
-                            {meal.foods}
-                          </p>
+                          <p className="text-sm leading-relaxed text-gray-700">{meal.foods}</p>
                         </div>
                       </div>
                     );
@@ -401,7 +397,7 @@ export default function MayoDiet() {
 
       {/* Footer note */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-        <strong>Notă:</strong> Totalul zilnic variază în funcție de porția aleasă la prânz și dacă incluzi gustarea. Fără gustare și cu porție ușoară: ~650–900 kcal/zi. Cu gustare și porție consistentă: ~1.100–1.400 kcal/zi. Consultați un medic sau nutriționist înainte de a începe orice dietă.
+        <strong>Notă:</strong> Totalul zilnic variază în funcție de porția aleasă la prânz și dacă incluzi gustarea. Cu porție ușoară la prânz, fără gustare: ~600–900 kcal/zi. Cu porție consistentă și gustare: ~1.100–1.400 kcal/zi. Consultați un medic sau nutriționist înainte de a începe orice dietă.
       </div>
     </div>
   );
