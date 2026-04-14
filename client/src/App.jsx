@@ -112,6 +112,7 @@ export default function App() {
       setUser(u ?? null);
       if (profileUnsub) { profileUnsub(); profileUnsub = null; }
       if (u) {
+        setProfile(undefined); // show LoadingScreen while Firestore fetches
         profileUnsub = onSnapshot(
           doc(db, "users", u.uid, "profile", "data"),
           (snap) => setProfile(snap.exists() ? snap.data() : null),
