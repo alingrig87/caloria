@@ -268,7 +268,7 @@ const MEAL_BADGE = {
   "Cină":      "bg-indigo-100 text-indigo-800",
 };
 
-export default function MayoDiet() {
+export default function VitalisDiet() {
   return (
     <div className="space-y-8">
       {/* Header */}

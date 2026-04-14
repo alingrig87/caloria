@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import PasteZone from "./components/PasteZone";
 import CaloriePanel from "./components/CaloriePanel";
 import DietForm from "./components/DietForm";
-import MayoDiet from "./components/MayoDiet";
+import VitalisDiet from "./components/VitalisDiet";
 
 function ScannerTab() {
   const [image, setImage] = useState(null);
@@ -106,10 +106,10 @@ function ScannerTab() {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState("mayo");
+  const [activeTab, setActiveTab] = useState("vitalis");
 
   const tabs = [
-    { id: "mayo", label: "✨ Dieta Vitalis" },
+    { id: "vitalis", label: "✨ Dieta Vitalis" },
     { id: "diet", label: "🥗 Plan Alimentar" },
     { id: "scanner", label: "📷 Scanner Calorii" },
   ];
@@ -145,7 +145,7 @@ export default function App() {
       </nav>
 
       <main className="flex-1 w-full px-4 md:px-6 py-6 md:py-8 max-w-5xl mx-auto">
-        {activeTab === "scanner" ? <ScannerTab /> : activeTab === "mayo" ? <MayoDiet /> : <DietForm />}
+        {activeTab === "scanner" ? <ScannerTab /> : activeTab === "vitalis" ? <VitalisDiet /> : <DietForm />}
       </main>
 
       <footer className="text-center text-gray-400 text-xs py-4 border-t border-green-100 bg-white no-print">
