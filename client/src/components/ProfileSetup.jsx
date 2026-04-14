@@ -49,31 +49,32 @@ export default function ProfileSetup({ onDone }) {
 
   const handleSave = async () => {
     setSaving(true);
-    const uid = auth.currentUser.uid;
+    const uid = auth.currentUser?.uid;
+    if (!uid) { alert("Nu ești autentificat!"); setSaving(false); return; }
     const today = formatDateStr();
     const endDate = formatDateStr(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000));
-
-    // Profile: only personal data (no targetWeight, no cycle fields)
-    await setDoc(doc(db, "users", uid, "profile", "data"), {
-      sex: form.sex,
-      age: Number(form.age),
-      height: Number(form.height),
-      weight: Number(form.weight),
-      activityLevel: form.activityLevel,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    });
-
-    // First objective: separate document, 14-day period
-    await addDoc(collection(db, "users", uid, "objectives"), {
-      startDate: today,
-      endDate,
-      startWeight: Number(form.weight),
-      targetWeight: Number(form.targetWeight),
-      createdAt: Timestamp.now(),
-    });
-
-    onDone();
+    try {
+      await setDoc(doc(db, "users", uid, "profile", "data"), {
+        sex: form.sex,
+        age: Number(form.age),
+        height: Number(form.height),
+        weight: Number(form.weight),
+        activityLevel: form.activityLevel,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+      await addDoc(collection(db, "users", uid, "objectives"), {
+        startDate: today,
+        endDate,
+        startWeight: Number(form.weight),
+        targetWeight: Number(form.targetWeight),
+        createdAt: Timestamp.now(),
+      });
+      onDone();
+    } catch (err) {
+      alert("Eroare la salvare: " + err.message);
+      setSaving(false);
+    }
   };
 
   return (
