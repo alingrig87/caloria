@@ -82,6 +82,40 @@ function ScannerTab() {
   );
 }
 
+function LoadingScreen() {
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 7000);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-green-50 gap-6">
+      <div className="flex flex-col items-center gap-3">
+        <span className="text-6xl">🥗</span>
+        <h1 className="text-2xl font-bold text-green-800">Caloria</h1>
+      </div>
+
+      <div className="flex flex-col items-center gap-3">
+        <svg className="animate-spin h-8 w-8 text-teal-500" viewBox="0 0 24 24" fill="none">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        <p className="text-sm text-gray-400">{slow ? "Durează mai mult decât de obicei..." : "Se încarcă..."}</p>
+      </div>
+
+      {slow && (
+        <button
+          onClick={() => window.location.reload()}
+          className="bg-teal-600 hover:bg-teal-500 text-white font-semibold px-6 py-2.5 rounded-xl transition-colors text-sm">
+          Reîncarcă pagina
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState(undefined);   // undefined = loading
   const [profile, setProfile] = useState(undefined); // undefined = loading
@@ -108,11 +142,7 @@ export default function App() {
 
   // Loading
   if (user === undefined || profile === undefined) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-green-50">
-        <div className="text-gray-400 text-sm">Se încarcă...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   // Not logged in
