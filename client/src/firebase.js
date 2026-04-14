@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { initializeFirestore, persistentLocalCache } from "firebase/firestore";
+import { initializeAuth, browserLocalPersistence, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBT8hhzO9sdRzfuBBonWe7ro68emyVrPh4",
@@ -13,9 +13,10 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
-// Persistent local cache: serves data from IndexedDB instantly on refresh
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache(),
+// browserLocalPersistence reads auth token from localStorage (synchronous),
+// so auth.currentUser is available immediately on module import — no async wait
+export const auth = initializeAuth(app, {
+  persistence: browserLocalPersistence,
 });
+export const googleProvider = new GoogleAuthProvider();
+export const db = getFirestore(app);
