@@ -87,22 +87,24 @@ export default function App() {
   const [profile, setProfile] = useState(undefined); // undefined = loading
   const [activeTab, setActiveTab] = useState("vitalis");
 
-  // Auth listener
+  // Auth + profile in one effect — avoids the render-cycle gap between the two
   useEffect(() => {
-    return onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      if (!u) setProfile(null);
+    let profileUnsub = null;
+    const authUnsub = onAuthStateChanged(auth, (u) => {
+      setUser(u ?? null);
+      if (profileUnsub) { profileUnsub(); profileUnsub = null; }
+      if (u) {
+        profileUnsub = onSnapshot(
+          doc(db, "users", u.uid, "profile", "data"),
+          (snap) => setProfile(snap.exists() ? snap.data() : null),
+          () => setProfile(null)
+        );
+      } else {
+        setProfile(null);
+      }
     });
+    return () => { authUnsub(); if (profileUnsub) profileUnsub(); };
   }, []);
-
-  // Profile listener (real-time)
-  useEffect(() => {
-    if (!user) return;
-    const ref = doc(db, "users", user.uid, "profile", "data");
-    return onSnapshot(ref, (snap) => {
-      setProfile(snap.exists() ? snap.data() : null);
-    });
-  }, [user]);
 
   // Loading
   if (user === undefined || profile === undefined) {
