@@ -1,8 +1,12 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "./firebase";
+import AuthScreen from "./components/AuthScreen";
 import PasteZone from "./components/PasteZone";
 import CaloriePanel from "./components/CaloriePanel";
 import DietForm from "./components/DietForm";
 import VitalisDiet from "./components/VitalisDiet";
+import Journal from "./components/Journal";
 
 function ScannerTab() {
   const [image, setImage] = useState(null);
@@ -106,33 +110,69 @@ function ScannerTab() {
 }
 
 export default function App() {
+  const [user, setUser] = useState(undefined); // undefined = loading
   const [activeTab, setActiveTab] = useState("vitalis");
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    return unsub;
+  }, []);
+
+  // Loading state
+  if (user === undefined) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-green-50">
+        <div className="text-gray-400 text-sm">Se încarcă...</div>
+      </div>
+    );
+  }
+
+  // Not logged in
+  if (!user) {
+    return <AuthScreen />;
+  }
 
   const tabs = [
     { id: "vitalis", label: "✨ Dieta Vitalis" },
-    { id: "diet", label: "🥗 Plan Alimentar" },
-    { id: "scanner", label: "📷 Scanner Calorii" },
+    { id: "journal", label: "📔 Jurnal" },
+    { id: "scanner", label: "📷 Scanner" },
+    { id: "diet", label: "🥗 Plan AI" },
   ];
 
   return (
     <div className="min-h-screen flex flex-col bg-green-50">
       <header className="border-b border-green-100 bg-white px-4 md:px-6 py-4 no-print shadow-sm">
-        <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <span className="text-3xl">🥗</span>
-          <div>
-            <h1 className="text-xl font-bold text-green-800">Caloria</h1>
-            <p className="text-xs text-green-600">Nutriție inteligentă cu ajutorul AI</p>
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">🥗</span>
+            <div>
+              <h1 className="text-xl font-bold text-green-800">Caloria</h1>
+              <p className="text-xs text-green-600">Nutriție inteligentă cu ajutorul AI</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <img
+              src={user.photoURL}
+              alt={user.displayName}
+              className="w-8 h-8 rounded-full border border-gray-200"
+            />
+            <button
+              onClick={() => signOut(auth)}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Ieși
+            </button>
           </div>
         </div>
       </header>
 
       <nav className="border-b border-green-100 bg-white px-4 md:px-6 no-print">
-        <div className="max-w-5xl mx-auto flex">
+        <div className="max-w-5xl mx-auto flex overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
                 activeTab === tab.id
                   ? "border-green-500 text-green-700"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -145,7 +185,10 @@ export default function App() {
       </nav>
 
       <main className="flex-1 w-full px-4 md:px-6 py-6 md:py-8 max-w-5xl mx-auto">
-        {activeTab === "scanner" ? <ScannerTab /> : activeTab === "vitalis" ? <VitalisDiet /> : <DietForm />}
+        {activeTab === "scanner" && <ScannerTab />}
+        {activeTab === "vitalis" && <VitalisDiet />}
+        {activeTab === "diet" && <DietForm />}
+        {activeTab === "journal" && <Journal />}
       </main>
 
       <footer className="text-center text-gray-400 text-xs py-4 border-t border-green-100 bg-white no-print">
