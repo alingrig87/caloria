@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { auth, db } from "../firebase";
+import { collection, addDoc, Timestamp } from "firebase/firestore";
 
 const DAYS_LABEL = ["Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă", "Duminică"];
 const DAYS_SHORT = ["Lu", "Ma", "Mi", "Jo", "Vi", "Sâ", "Du"];
@@ -229,6 +231,49 @@ const WEEKS = [
 ];
 
 
+function AddMealButton({ name, mealType, kcal }) {
+  const [state, setState] = useState("idle"); // idle | loading | done
+
+  const handleAdd = async () => {
+    if (state !== "idle") return;
+    setState("loading");
+    try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) { setState("idle"); return; }
+      const today = new Date().toISOString().split("T")[0];
+      await addDoc(collection(db, "users", uid, "meals"), {
+        mealType,
+        name,
+        kcal,
+        protein: null,
+        carbs: null,
+        fat: null,
+        items: [],
+        description: null,
+        date: today,
+        createdAt: Timestamp.now(),
+      });
+      setState("done");
+      setTimeout(() => setState("idle"), 2500);
+    } catch {
+      setState("idle");
+    }
+  };
+
+  return (
+    <button onClick={handleAdd} disabled={state !== "idle"}
+      className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors shrink-0 whitespace-nowrap ${
+        state === "done"
+          ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+          : state === "loading"
+          ? "bg-gray-100 text-gray-400"
+          : "bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200"
+      }`}>
+      {state === "done" ? "✓ Adăugat" : state === "loading" ? "..." : "+ Jurnal"}
+    </button>
+  );
+}
+
 function OptionsBlock({ time, icon, type, options, hint }) {
   const badgeBase = type === "Prânz"
     ? "bg-green-100 text-green-800"
@@ -253,7 +298,10 @@ function OptionsBlock({ time, icon, type, options, hint }) {
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${s.badge}`}>{opt.label}</span>
               </div>
               <p className="text-sm text-gray-700 flex-1 leading-relaxed">{opt.foods}</p>
-              <span className="text-xs font-semibold text-gray-400 shrink-0 pt-0.5 whitespace-nowrap">~{opt.kcal} kcal</span>
+              <div className="flex flex-col items-end gap-1.5 shrink-0 pt-0.5">
+                <span className="text-xs font-semibold text-gray-400 whitespace-nowrap">~{opt.kcal} kcal</span>
+                <AddMealButton name={opt.foods.split("+")[0].trim()} mealType={type} kcal={opt.kcal} />
+              </div>
             </div>
           );
         })}
@@ -328,9 +376,10 @@ export default function VitalisDiet() {
                 <div className="text-xs font-bold text-gray-500 mt-0.5">{day.breakfast.time}</div>
               </div>
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Mic dejun</span>
                   <span className="text-xs text-gray-400">~{day.breakfast.kcal} kcal</span>
+                  <AddMealButton name={day.breakfast.foods.split("+")[0].trim()} mealType="Mic dejun" kcal={day.breakfast.kcal} />
                 </div>
                 <p className="text-sm text-gray-700 leading-relaxed">{day.breakfast.foods}</p>
               </div>
@@ -352,10 +401,11 @@ export default function VitalisDiet() {
                 <div className="text-xs font-bold text-gray-500 mt-0.5">{day.snack.time}</div>
               </div>
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">Gustare</span>
                   <span className="text-xs text-gray-400 italic">opțional</span>
                   <span className="text-xs text-gray-400">~{day.snack.kcal} kcal</span>
+                  <AddMealButton name={day.snack.foods.split("+")[0].trim()} mealType="Gustare" kcal={day.snack.kcal} />
                 </div>
                 <p className="text-sm text-gray-700 leading-relaxed">{day.snack.foods}</p>
               </div>

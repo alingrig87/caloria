@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { auth, db } from "../firebase";
 import {
   collection, addDoc, query, where, orderBy,
-  onSnapshot, deleteDoc, doc, Timestamp,
+  onSnapshot, deleteDoc, doc, updateDoc, Timestamp,
 } from "firebase/firestore";
 
 const MEAL_TYPES = ["Mic dejun", "Prânz", "Gustare", "Cină", "Altele"];
@@ -375,8 +375,84 @@ function AddActivityModal({ onClose, weightKg }) {
   );
 }
 
+// ── Edit Meal Modal ────────────────────────────────────────
+function EditMealModal({ meal, onClose }) {
+  const [form, setForm] = useState({
+    name: meal.name || "",
+    kcal: String(meal.kcal || ""),
+    protein: String(meal.protein || ""),
+    carbs: String(meal.carbs || ""),
+    fat: String(meal.fat || ""),
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const handleSave = async () => {
+    if (!form.name.trim() || !form.kcal) return;
+    setSaving(true);
+    try {
+      const uid = auth.currentUser?.uid;
+      await updateDoc(doc(db, "users", uid, "meals", meal.id), {
+        name: form.name.trim(),
+        kcal: Number(form.kcal) || null,
+        protein: form.protein ? Number(form.protein) : null,
+        carbs: form.carbs ? Number(form.carbs) : null,
+        fat: form.fat ? Number(form.fat) : null,
+      });
+      onClose();
+    } catch {
+      setError("Eroare la salvare. Încearcă din nou.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-gray-800">Editează masa</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Denumire masă</label>
+          <input value={form.name} onChange={(e) => set("name", e.target.value)}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Calorii (kcal)</label>
+          <input type="number" min="0" value={form.kcal} onChange={(e) => set("kcal", e.target.value)}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { key: "protein", label: "Proteină (g)" },
+            { key: "carbs",   label: "Carbo (g)" },
+            { key: "fat",     label: "Grăsimi (g)" },
+          ].map(({ key, label }) => (
+            <div key={key}>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">{label}</label>
+              <input type="number" min="0" value={form[key]} onChange={(e) => set(key, e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
+            </div>
+          ))}
+        </div>
+        {error && <p className="text-red-500 text-sm bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+        <div className="flex gap-3">
+          <button onClick={onClose} className="px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">Anulează</button>
+          <button onClick={handleSave} disabled={!form.name.trim() || !form.kcal || saving}
+            className="flex-1 bg-teal-600 hover:bg-teal-500 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 rounded-xl transition-colors">
+            {saving ? "Se salvează..." : "Salvează"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Meal Card ──────────────────────────────────────────────
-function MealCard({ meal, onDelete }) {
+function MealCard({ meal, onDelete, onEdit }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="bg-white border border-gray-100 rounded-xl px-4 py-3 group">
@@ -412,10 +488,16 @@ function MealCard({ meal, onDelete }) {
             </div>
           )}
         </div>
-        <button onClick={() => onDelete(meal.id)}
-          className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-xl leading-none shrink-0 pt-0.5">
-          ×
-        </button>
+        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-2 shrink-0 pt-0.5 transition-opacity">
+          <button onClick={() => onEdit(meal)}
+            className="text-gray-400 hover:text-teal-500 transition-colors text-sm leading-none px-1">
+            ✏️
+          </button>
+          <button onClick={() => onDelete(meal.id)}
+            className="text-gray-300 hover:text-red-400 transition-colors text-xl leading-none">
+            ×
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -450,6 +532,7 @@ export default function Journal({ profile }) {
   const [loading, setLoading] = useState(true);
   const [showMealModal, setShowMealModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
+  const [editingMeal, setEditingMeal] = useState(null);
 
   useEffect(() => {
     const uid = auth.currentUser?.uid;
@@ -551,7 +634,7 @@ export default function Journal({ profile }) {
             <div key={type}>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{type}</p>
               <div className="space-y-2">
-                {items.map((m) => <MealCard key={m.id} meal={m} onDelete={handleDelete} />)}
+                {items.map((m) => <MealCard key={m.id} meal={m} onDelete={handleDelete} onEdit={setEditingMeal} />)}
               </div>
             </div>
           ))}
@@ -567,6 +650,7 @@ export default function Journal({ profile }) {
       )}
 
       {showMealModal && <AddMealModal onClose={() => setShowMealModal(false)} />}
+      {editingMeal && <EditMealModal meal={editingMeal} onClose={() => setEditingMeal(null)} />}
       {showActivityModal && (
         <AddActivityModal
           onClose={() => setShowActivityModal(false)}
