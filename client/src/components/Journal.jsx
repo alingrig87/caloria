@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { auth, db } from "../firebase";
 import {
-  collection, addDoc, query, where, orderBy,
+  collection, addDoc, query, where,
   onSnapshot, deleteDoc, doc, updateDoc, Timestamp,
 } from "firebase/firestore";
 
@@ -532,12 +532,13 @@ export default function Journal({ profile, onGoToJournal }) {
     const q = query(
       collection(db, "users", uid, "meals"),
       where("date", "==", selectedDate),
-      orderBy("createdAt", "asc")
     );
     const unsub = onSnapshot(q, (snap) => {
-      setMeals(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0));
+      setMeals(docs);
       setLoading(false);
-    });
+    }, () => setLoading(false));
     return unsub;
   }, [selectedDate]);
 
@@ -547,11 +548,12 @@ export default function Journal({ profile, onGoToJournal }) {
     const q = query(
       collection(db, "users", uid, "activities"),
       where("date", "==", selectedDate),
-      orderBy("createdAt", "asc")
     );
-    return onSnapshot(q, (snap) =>
-      setActivities(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-    );
+    return onSnapshot(q, (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0));
+      setActivities(docs);
+    });
   }, [selectedDate]);
 
   const handleDelete = async (id) => {
