@@ -325,7 +325,6 @@ function AddActivityModal({ onClose, weightKg }) {
     if (!result) return;
     const uid = auth.currentUser?.uid;
     if (!uid) { setError("Nu ești autentificat."); return; }
-    setSaving(true);
     addDoc(collection(db, "users", uid, "activities"), {
       name: result.name,
       duration: result.duration,
