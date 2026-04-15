@@ -48,14 +48,20 @@ export function useEstimatedWeight(profile, bmr, activeObjective) {
       ),
       ...dates.map((date) =>
         getDoc(doc(db, "users", uid, "dailyLogs", date))
-          .then((snap) => ({ date, steps: snap.exists() ? (snap.data().steps || 0) : 0 }))
+          .then((snap) => ({
+            date,
+            steps: snap.exists() ? (snap.data().steps || 0) : 0,
+            realWeight: snap.exists() ? (snap.data().realWeight || null) : null,
+          }))
       ),
     ]).then(([activityMap, ...rest]) => {
       const mealMap = {};
       const stepsMap = {};
+      const realWeightMap = {};
       rest.forEach((r) => {
         if ("eaten" in r) mealMap[r.date] = r.eaten;
         if ("steps" in r) stepsMap[r.date] = r.steps;
+        if ("realWeight" in r && r.realWeight !== null) realWeightMap[r.date] = r.realWeight;
       });
 
       const budget = Math.max(1200, calcTDEE(bmr, profile.activityLevel) - 500);
@@ -66,7 +72,7 @@ export function useEstimatedWeight(profile, bmr, activeObjective) {
         const burned = bmr + stepsKcal + activityKcal;
         const effectiveEaten = eaten > 0 ? eaten : budget;
         const deficit = burned - effectiveEaten;
-        return { date, eaten, burned, deficit, logged: eaten > 0 };
+        return { date, eaten, burned, deficit, logged: eaten > 0, realWeight: realWeightMap[date] || null };
       });
 
       const totalDeficit = days.reduce((s, d) => s + d.deficit, 0);

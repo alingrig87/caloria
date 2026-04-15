@@ -23,79 +23,129 @@ function Bar({ pct, color = "bg-teal-500" }) {
 function WeightChart({ dayData, startWeight, targetWeight }) {
   if (!dayData || dayData.length === 0) return null;
 
-  // Build estimated weight per logged day
+  // Estimated line: running deficit from startWeight
   let running = startWeight;
-  const points = dayData.map((d, i) => {
-    const loss = d.deficit / 7700;
-    running = running - loss;
-    return { i, weight: parseFloat(running.toFixed(2)), logged: d.logged, date: d.date };
+  const estPoints = dayData.map((d, i) => {
+    running = parseFloat((running - d.deficit / 7700).toFixed(2));
+    return { i, weight: running };
   });
 
-  const weights = points.map((p) => p.weight);
-  const minW = Math.min(...weights, targetWeight) - 0.3;
-  const maxW = Math.max(...weights, startWeight) + 0.3;
+  // Real line: only days where user logged weight
+  const realPoints = dayData
+    .map((d, i) => ({ i, weight: d.realWeight }))
+    .filter((p) => p.weight !== null && p.weight !== undefined);
+
+  const allWeights = [
+    ...estPoints.map((p) => p.weight),
+    ...realPoints.map((p) => p.weight),
+    startWeight,
+    targetWeight,
+  ];
+  const minW = Math.min(...allWeights) - 0.5;
+  const maxW = Math.max(...allWeights) + 0.5;
   const range = maxW - minW || 1;
 
   const W = 300;
-  const H = 100;
-  const padL = 36;
+  const H = 120;
+  const padL = 38;
   const padR = 8;
-  const padT = 8;
-  const padB = 20;
+  const padT = 10;
+  const padB = 22;
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
+  const totalDays = 13; // 0..13 = 14 days
 
-  const xOf = (i) => padL + (i / Math.max(points.length - 1, 1)) * chartW;
+  const xOf = (i) => padL + (i / totalDays) * chartW;
   const yOf = (w) => padT + ((maxW - w) / range) * chartH;
 
-  const pathD = points.map((p, i) =>
-    `${i === 0 ? "M" : "L"} ${xOf(i).toFixed(1)} ${yOf(p.weight).toFixed(1)}`
+  const estPath = estPoints.map((p, i) =>
+    `${i === 0 ? "M" : "L"} ${xOf(p.i).toFixed(1)} ${yOf(p.weight).toFixed(1)}`
   ).join(" ");
+
+  const realPath = realPoints.length > 1
+    ? realPoints.map((p, i) =>
+        `${i === 0 ? "M" : "L"} ${xOf(p.i).toFixed(1)} ${yOf(p.weight).toFixed(1)}`
+      ).join(" ")
+    : null;
 
   const targetY = yOf(targetWeight);
   const startY = yOf(startWeight);
 
   return (
     <div className="w-full overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 220 }}>
-        {/* Target line */}
-        <line x1={padL} y1={targetY} x2={W - padR} y2={targetY}
-          stroke="#10b981" strokeWidth="1" strokeDasharray="4 3" opacity="0.6" />
-        <text x={padL - 2} y={targetY + 4} fontSize="7" fill="#10b981" textAnchor="end">{targetWeight}</text>
-
-        {/* Start line */}
-        <line x1={padL} y1={startY} x2={W - padR} y2={startY}
-          stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 3" opacity="0.4" />
-        <text x={padL - 2} y={startY + 4} fontSize="7" fill="#94a3b8" textAnchor="end">{startWeight}</text>
-
-        {/* Area fill */}
-        <path d={`${pathD} L ${xOf(points.length - 1).toFixed(1)} ${padT + chartH} L ${padL} ${padT + chartH} Z`}
-          fill="url(#wGrad)" opacity="0.15" />
-
-        {/* Gradient */}
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 240 }}>
         <defs>
-          <linearGradient id="wGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#14b8a6" />
+          <linearGradient id="wGradEst" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#14b8a6" stopOpacity="0.3" />
             <stop offset="100%" stopColor="#14b8a6" stopOpacity="0" />
           </linearGradient>
         </defs>
 
-        {/* Line */}
-        <path d={pathD} fill="none" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Target line */}
+        <line x1={padL} y1={targetY} x2={W - padR} y2={targetY}
+          stroke="#10b981" strokeWidth="1" strokeDasharray="4 3" opacity="0.7" />
+        <text x={padL - 2} y={targetY + 3} fontSize="7" fill="#10b981" textAnchor="end">{targetWeight}</text>
 
-        {/* Points */}
-        {points.map((p) => (
-          <circle key={p.i} cx={xOf(p.i)} cy={yOf(p.weight)} r="3"
-            fill={p.logged ? "#14b8a6" : "#cbd5e1"} stroke="white" strokeWidth="1.5" />
+        {/* Start line */}
+        <line x1={padL} y1={startY} x2={W - padR} y2={startY}
+          stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 3" opacity="0.4" />
+        <text x={padL - 2} y={startY + 3} fontSize="7" fill="#94a3b8" textAnchor="end">{startWeight}</text>
+
+        {/* Estimated area */}
+        <path
+          d={`${estPath} L ${xOf(estPoints[estPoints.length - 1].i).toFixed(1)} ${padT + chartH} L ${padL} ${padT + chartH} Z`}
+          fill="url(#wGradEst)" />
+
+        {/* Estimated line */}
+        <path d={estPath} fill="none" stroke="#14b8a6" strokeWidth="2"
+          strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 3" />
+
+        {/* Real line */}
+        {realPath && (
+          <path d={realPath} fill="none" stroke="#f97316" strokeWidth="2.5"
+            strokeLinecap="round" strokeLinejoin="round" />
+        )}
+
+        {/* Estimated points */}
+        {estPoints.map((p) => (
+          <circle key={`e${p.i}`} cx={xOf(p.i)} cy={yOf(p.weight)} r="2.5"
+            fill="#14b8a6" stroke="white" strokeWidth="1.5" opacity="0.7" />
+        ))}
+
+        {/* Real points with label */}
+        {realPoints.map((p) => (
+          <g key={`r${p.i}`}>
+            <circle cx={xOf(p.i)} cy={yOf(p.weight)} r="4"
+              fill="#f97316" stroke="white" strokeWidth="1.5" />
+            <text x={xOf(p.i)} y={yOf(p.weight) - 6} fontSize="7"
+              fill="#f97316" textAnchor="middle" fontWeight="bold">
+              {p.weight}
+            </text>
+          </g>
         ))}
 
         {/* X axis day labels */}
-        {points.filter((_, i) => i % 2 === 0).map((p) => (
-          <text key={p.i} x={xOf(p.i)} y={H - 4} fontSize="7" fill="#94a3b8" textAnchor="middle">
-            {p.i + 1}
+        {Array.from({ length: 14 }, (_, i) => i).filter((i) => i % 2 === 0).map((i) => (
+          <text key={i} x={xOf(i)} y={H - 5} fontSize="7" fill="#94a3b8" textAnchor="middle">
+            {i + 1}
           </text>
         ))}
       </svg>
+
+      <div className="flex gap-4 text-xs text-gray-400 mt-1">
+        <span className="flex items-center gap-1.5">
+          <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="#14b8a6" strokeWidth="2" strokeDasharray="4 2"/></svg>
+          AI estimat
+        </span>
+        <span className="flex items-center gap-1.5">
+          <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="#f97316" strokeWidth="2.5"/></svg>
+          Real (cântărit)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="#10b981" strokeWidth="1" strokeDasharray="3 2"/></svg>
+          Țintă
+        </span>
+      </div>
     </div>
   );
 }
@@ -273,13 +323,15 @@ function EditProfileModal({ profile, onClose }) {
 export default function ProfileTab({ profile, onProfileUpdate }) {
   const [objectives, setObjectives] = useState([]);
   const [objLoading, setObjLoading] = useState(true);
-  const [dailyLog, setDailyLog] = useState({ steps: 0, water: 0 });
+  const [dailyLog, setDailyLog] = useState({ steps: 0, water: 0, realWeight: null });
   const [stepsInput, setStepsInput] = useState("");
+  const [weightInput, setWeightInput] = useState("");
   const [todayKcal, setTodayKcal] = useState(0);
   const [showAddObjective, setShowAddObjective] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [savingSteps, setSavingSteps] = useState(false);
   const [savingWater, setSavingWater] = useState(false);
+  const [savingWeight, setSavingWeight] = useState(false);
 
   const today = formatDateStr();
   const uid = auth.currentUser?.uid;
@@ -329,7 +381,11 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
   useEffect(() => {
     if (!uid) return;
     getDoc(doc(db, "users", uid, "dailyLogs", today)).then((snap) => {
-      if (snap.exists()) { setDailyLog(snap.data()); setStepsInput(String(snap.data().steps || "")); }
+      if (snap.exists()) {
+      setDailyLog(snap.data());
+      setStepsInput(String(snap.data().steps || ""));
+      setWeightInput(String(snap.data().realWeight || ""));
+    }
     });
   }, [uid, today]);
 
@@ -348,6 +404,14 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
     await setDoc(doc(db, "users", uid, "dailyLogs", today), { steps: Number(stepsInput), updatedAt: Timestamp.now() }, { merge: true });
     setDailyLog((d) => ({ ...d, steps: Number(stepsInput) }));
     setSavingSteps(false);
+  };
+
+  const saveRealWeight = async () => {
+    if (!weightInput) return;
+    setSavingWeight(true);
+    await setDoc(doc(db, "users", uid, "dailyLogs", today), { realWeight: Number(weightInput), updatedAt: Timestamp.now() }, { merge: true });
+    setDailyLog((d) => ({ ...d, realWeight: Number(weightInput) }));
+    setSavingWeight(false);
   };
 
   const water = dailyLog.water || 0;
@@ -504,18 +568,14 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
             <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-gray-100 inline-block"/>urmează</span>
           </div>
 
-          {dayData.length > 1 && (
+          {dayData.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 mb-2">Progres greutate estimată</p>
+              <p className="text-xs font-semibold text-gray-500 mb-2">Progres greutate — estimat vs. real</p>
               <WeightChart
                 dayData={dayData}
                 startWeight={activeObjective.startWeight}
                 targetWeight={activeObjective.targetWeight}
               />
-              <div className="flex gap-4 text-xs text-gray-400 mt-1">
-                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-teal-500 inline-block rounded"/>estimat</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-400 inline-block rounded" style={{borderTop: '1px dashed'}}/>țintă</span>
-              </div>
             </div>
           )}
         </div>
@@ -545,6 +605,28 @@ export default function ProfileTab({ profile, onProfileUpdate }) {
           {steps > 0 && (
             <p className="text-xs text-teal-600 mt-1.5">
               {steps.toLocaleString()} pași → +{stepsKcal} kcal arse suplimentar
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Greutate reală azi (opțional)</label>
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <input type="number" min="30" max="300" step="0.1" value={weightInput}
+                onChange={(e) => setWeightInput(e.target.value)} onBlur={saveRealWeight}
+                placeholder="ex. 74.3"
+                className="w-full border border-orange-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-orange-400 pr-10" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">kg</span>
+            </div>
+            <button onClick={saveRealWeight} disabled={savingWeight || !weightInput}
+              className="bg-orange-500 hover:bg-orange-400 disabled:bg-gray-200 text-white px-4 rounded-xl text-sm font-semibold transition-colors">
+              {savingWeight ? "..." : "OK"}
+            </button>
+          </div>
+          {dailyLog.realWeight && (
+            <p className="text-xs text-orange-600 mt-1.5">
+              Înregistrat: <strong>{dailyLog.realWeight} kg</strong> — apare în grafic
             </p>
           )}
         </div>
