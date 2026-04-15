@@ -391,6 +391,7 @@ function AddActivityModal({ onClose, weightKg }) {
 function EditMealModal({ meal, onClose }) {
   const [form, setForm] = useState({
     name: meal.name || "",
+    mealType: meal.mealType || "Altele",
     kcal: String(meal.kcal || ""),
     protein: String(meal.protein || ""),
     carbs: String(meal.carbs || ""),
@@ -407,15 +408,15 @@ function EditMealModal({ meal, onClose }) {
       const uid = auth.currentUser?.uid;
       await updateDoc(doc(db, "users", uid, "meals", meal.id), {
         name: form.name.trim(),
+        mealType: form.mealType,
         kcal: Number(form.kcal) || null,
         protein: form.protein ? Number(form.protein) : null,
         carbs: form.carbs ? Number(form.carbs) : null,
         fat: form.fat ? Number(form.fat) : null,
       });
       onClose();
-    } catch {
-      setError("Eroare la salvare. Încearcă din nou.");
-    } finally {
+    } catch (err) {
+      setError("Eroare la salvare: " + err.message);
       setSaving(false);
     }
   };
@@ -431,6 +432,19 @@ function EditMealModal({ meal, onClose }) {
           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Denumire masă</label>
           <input value={form.name} onChange={(e) => set("name", e.target.value)}
             className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-teal-400" />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Tip masă</label>
+          <div className="flex gap-1.5 flex-wrap">
+            {MEAL_TYPES.map((t) => (
+              <button key={t} onClick={() => set("mealType", t)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  form.mealType === t ? "bg-teal-100 text-teal-800 border border-teal-300" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}>
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
         <div>
           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Calorii (kcal)</label>
